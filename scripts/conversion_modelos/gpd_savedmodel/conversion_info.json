@@ -1,0 +1,21 @@
+{
+  "conversion_step": 1,
+  "method": "savedmodel",
+  "source_files": {
+    "json": "model_pol.json",
+    "hdf5": "model_pol_best.hdf5"
+  },
+  "model_info": {
+    "input_shape": "(None, 400, 3)",
+    "output_shape": "(None, 3)",
+    "total_params": 1742763,
+    "layers": 6
+  },
+  "environment": {
+    "python_version": "3.6.11 | packaged by conda-forge | (default, Aug  5 2020, 20:09:42) \n[GCC 7.5.0]",
+    "tensorflow_version": "1.14.0",
+    "keras_version": "2.2.4"
+  },
+  "export_path": "gpd_savedmodel",
+  "next_step": "Use step2_savedmodel_convert.py in gpd_py39 environment"
+}
