@@ -73,7 +73,8 @@ def main():
         return
     
     json_path = sys.argv[1]
-    inspect_json_structure(json_path)
+    #inspect_json_structure(json_path)
+    verify_architecture_hypothesis(json_path)
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # GPD con procesamiento por chunks para manejar archivos grandes
+# Uso: python gpd_chunked_processing.py -V -I anza2016.in -O anza2016_original.out
 
 import numpy as np
 import obspy.core as oc
