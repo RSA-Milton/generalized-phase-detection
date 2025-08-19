@@ -2,6 +2,8 @@
 """
 Conversor GPD Legacy a Keras Moderno - Versión Corregida
 Maneja nombres de capas con sufijo _1 y corrige la arquitectura de salida
+Importante: El modelo espera ventanas (400, 3) en orden (N, E, Z)
+Ejecucion: python gpd_converter.py model_pol.json model_pol_best.hdf5 [output.keras]
 """
 
 import json
@@ -124,10 +126,10 @@ class GPDConverter:
         # Input
         inputs = Input(shape=(400, 3), name='input')
         
-        # Separar los 3 canales (Z, N, E)
-        z_channel = Lambda(lambda x: x[:, :, 0:1], name='lambda_1')(inputs)
-        n_channel = Lambda(lambda x: x[:, :, 1:2], name='lambda_2')(inputs)
-        e_channel = Lambda(lambda x: x[:, :, 2:3], name='lambda_3')(inputs)
+        # Mantener 3C por rama (identidad), preserva nombres de las Lambdas 
+        n_channel = Lambda(lambda x: x, name='lambda_1')(inputs) 
+        e_channel = Lambda(lambda x: x, name='lambda_2')(inputs) 
+        z_channel = Lambda(lambda x: x, name='lambda_3')(inputs) 
         
         # Construir el Sequential compartido
         layers_config = self.extract_sequential_config()
@@ -208,27 +210,6 @@ class GPDConverter:
                                 if 'beta' in weight_keys[0] or 'beta:0' in weight_keys[0]:
                                     # Si beta está primero, reordenar a [gamma, beta, mean, var]
                                     weights = [weights[1], weights[0], weights[2], weights[3]]
-                            
-                            # Parche
-
-                            # Caso especial: Conv1D con mismatch (21,1,32) esperado vs (21,3,32) en HDF5
-                            if isinstance(layer, Conv1D) and len(weights) == 2:
-                                kern, bias = weights
-                                # Si el kernel del archivo tiene 3 canales y la capa actual espera 1
-                                if kern.ndim == 3 and kern.shape[1] == 3:
-                                    # Confirmar que la capa espera 1 canal
-                                    # (si la capa ya esta construida, layer.kernel.shape[1] existe)
-                                    exp_in_ch = int(layer.kernel.shape[1])
-                                    if exp_in_ch == 1:
-                                        # Reducir 3->1 promediando por canal (tambien puedes usar suma)
-                                        kern = kern.mean(axis=1, keepdims=True)
-                                        weights = [kern, bias]
-                                        print(f"✓ Reducido kernel 3→1 canales para {layer_name}: {kern.shape}")
-
-                            # Para BatchNorm: reorden si es necesario (tu logica existente)
-                            if isinstance(layer, BatchNormalization) and len(weights) == 4:
-                                # si detectas que beta/gamma vienen en orden distinto, reordena aqui (tu bloque actual)
-                                pass
 
                             layer.set_weights(weights)
                             print(f"✓ Pesos cargados para {layer_name}")
