@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 '''
 # GPD con procesamiento por chunks para manejar archivos grandes
-Uso: time python gpd_chunked_processing.py -I anza2016.in -O anza2016_v0.out -V --hours 4
+Uso: time python gpd_chunked_legacy.py -I anza2016.in -O anza2016_v0.out -V --hours 4
 '''
 
 import numpy as np
