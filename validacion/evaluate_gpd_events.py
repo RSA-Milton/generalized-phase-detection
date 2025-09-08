@@ -5,7 +5,7 @@ Procesa archivos mseed preprocesados y evalúa detecciones contra picks manuales
 
 Uso: 
 python evaluate_gpd_events.py -V
-python evaluate_gpd_events.py --stations CHAI LABR -V
+python evaluate_gpd_events.py --min-proba-p 0.65 --min-proba-s 0.85 -V
 """
 
 import numpy as np
@@ -27,7 +27,8 @@ CSV_OUTPUT = "/home/rsa/projects/gpd/data/out/resultados_evaluacion_100.csv"
 DEFAULT_STATIONS = ['LABR', 'CUSH', 'CHAI', 'UVER', 'PORT']
 
 # Parámetros del modelo GPD
-min_proba = 0.95
+DEFAULT_MIN_PROBA_P = 0.65
+DEFAULT_MIN_PROBA_S = 0.85
 n_shift = 10
 batch_size = 100
 half_dur = 2.00
@@ -55,7 +56,7 @@ def sliding_window(data, size, stepsize=1, padded=False, axis=-1, copy=True):
     strided = np.lib.stride_tricks.as_strided(data, shape=shape, strides=strides)
     return strided.copy() if copy else strided
 
-def process_event_file(model, mseed_file, verbose=False):
+def process_event_file(model, mseed_file, min_proba_P, min_proba_S, verbose=False):
     """
     Procesa un archivo de evento sísmico y devuelve las detecciones
     
@@ -64,10 +65,10 @@ def process_event_file(model, mseed_file, verbose=False):
     dict con:
         'num_p': número de fases P detectadas
         'num_s': número de fases S detectadas  
-        't_p': tiempo de fase P (o None si != 1)
-        't_s': tiempo de fase S (o None si != 1)
-        'prob_p': probabilidad de fase P (o None si != 1)
-        'prob_s': probabilidad de fase S (o None si != 1)
+        't_p': tiempo de mejor fase P (o None si no hay)
+        't_s': tiempo de mejor fase S (o None si no hay)
+        'prob_p': probabilidad de mejor fase P (o None si no hay)
+        'prob_s': probabilidad de mejor fase S (o None si no hay)
     """
     
     result = {
@@ -121,9 +122,9 @@ def process_event_file(model, mseed_file, verbose=False):
         prob_P = ts[:,0]
         prob_S = ts[:,1]
         
-        # Detectar picks P
+        # Detectar picks P con umbral específico
         from obspy.signal.trigger import trigger_onset
-        trigs_p = trigger_onset(prob_P, min_proba, 0.1)
+        trigs_p = trigger_onset(prob_P, min_proba_P, 0.1)
         
         p_detections = []
         for trig in trigs_p:
@@ -132,10 +133,10 @@ def process_event_file(model, mseed_file, verbose=False):
             pick_idx = np.argmax(ts[trig[0]:trig[1], 0]) + trig[0]
             pick_time = start_time + tt[pick_idx]
             pick_prob = ts[pick_idx, 0]
-            p_detections.append((pick_time, pick_prob))
+            p_detections.append((pick_time, pick_prob, pick_idx))
         
-        # Detectar picks S
-        trigs_s = trigger_onset(prob_S, min_proba, 0.1)
+        # Detectar picks S con umbral específico
+        trigs_s = trigger_onset(prob_S, min_proba_S, 0.1)
         
         s_detections = []
         for trig in trigs_s:
@@ -144,20 +145,25 @@ def process_event_file(model, mseed_file, verbose=False):
             pick_idx = np.argmax(ts[trig[0]:trig[1], 1]) + trig[0]
             pick_time = start_time + tt[pick_idx]
             pick_prob = ts[pick_idx, 1]
-            s_detections.append((pick_time, pick_prob))
+            s_detections.append((pick_time, pick_prob, pick_idx))
         
         # Llenar resultados
         result['num_p'] = len(p_detections)
         result['num_s'] = len(s_detections)
         
-        # Solo llenar tiempos y probabilidades si hay exactamente 1 detección
-        if result['num_p'] == 1:
-            result['t_p'] = p_detections[0][0].isoformat()
-            result['prob_p'] = float(p_detections[0][1])
+        # Para P: si hay detecciones, tomar la de mayor probabilidad
+        if result['num_p'] > 0:
+            p_detections.sort(key=lambda x: x[1], reverse=True)
+            best_p = p_detections[0]
+            result['t_p'] = best_p[0].isoformat()
+            result['prob_p'] = float(best_p[1])
         
-        if result['num_s'] == 1:
-            result['t_s'] = s_detections[0][0].isoformat()
-            result['prob_s'] = float(s_detections[0][1])
+        # Para S: si hay detecciones, tomar la de mayor probabilidad
+        if result['num_s'] > 0:
+            s_detections.sort(key=lambda x: x[1], reverse=True)
+            best_s = s_detections[0]
+            result['t_s'] = best_s[0].isoformat()
+            result['prob_s'] = float(best_s[1])
         
         # Limpiar memoria
         del tr_win, ts, sliding_N, sliding_E, sliding_Z
@@ -175,14 +181,14 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Ejemplos de uso:
-  # Evaluación estándar con todas las estaciones por defecto
+  # Evaluación con umbrales por defecto
   python evaluate_gpd_events.py -V
   
-  # Solo evaluar estaciones específicas
-  python evaluate_gpd_events.py --stations CHAI LABR UVER -V
+  # Umbrales personalizados
+  python evaluate_gpd_events.py --min-proba-p 0.55 --min-proba-s 0.90 -V
   
-  # Cambiar directorios de entrada y salida
-  python evaluate_gpd_events.py --mseed-dir /path/to/mseed/ --csv-input /path/to/input.csv --csv-output /path/to/output.csv
+  # Solo estaciones específicas
+  python evaluate_gpd_events.py --stations CHAI LABR -V
         """)
     
     parser.add_argument('--mseed-dir', type=str, default=MSEED_DIR,
@@ -193,10 +199,14 @@ Ejemplos de uso:
                        help=f'Archivo CSV de salida (default: {CSV_OUTPUT})')
     parser.add_argument('--stations', nargs='+', default=DEFAULT_STATIONS,
                        help=f'Estaciones a procesar (default: {DEFAULT_STATIONS})')
+    parser.add_argument('--min-proba-p', type=float, default=DEFAULT_MIN_PROBA_P,
+                       help=f'Umbral de probabilidad para fases P (default: {DEFAULT_MIN_PROBA_P})')
+    parser.add_argument('--min-proba-s', type=float, default=DEFAULT_MIN_PROBA_S,
+                       help=f'Umbral de probabilidad para fases S (default: {DEFAULT_MIN_PROBA_S})')
+    parser.add_argument('--model-path', type=str, default="./models/gpd_v2.keras",
+                       help='Ruta al modelo GPD (default: ./models/gpd_v2.keras)')
     parser.add_argument('-V', '--verbose', action='store_true',
                        help='Mostrar información detallada')
-    parser.add_argument('--model-path', type=str, default="./models/gpd_v2.keras",
-                       help='Ruta al modelo GPD')
     
     args = parser.parse_args()
     
@@ -205,6 +215,8 @@ Ejemplos de uso:
     print(f"CSV entrada: {args.csv_input}")
     print(f"CSV salida: {args.csv_output}")
     print(f"Estaciones: {args.stations}")
+    print(f"Umbral P: {args.min_proba_p}")
+    print(f"Umbral S: {args.min_proba_s}")
     print(f"Modelo: {args.model_path}")
     
     # Verificar directorios y archivos
@@ -249,7 +261,6 @@ Ejemplos de uso:
     
     # Preparar datos de salida
     results = []
-    station_stats = defaultdict(lambda: {'total': 0, 'multi_p': 0, 'multi_s': 0})
     
     print(f"\nProcesando {len(df_filtered)} eventos...")
     
@@ -259,8 +270,6 @@ Ejemplos de uso:
         mseed_name = row['mseed']
         mseed_path = os.path.join(args.mseed_dir, mseed_name)
         
-        station_stats[estacion]['total'] += 1
-        
         # Verificar que el archivo existe
         if not os.path.isfile(mseed_path):
             if args.verbose:
@@ -268,13 +277,7 @@ Ejemplos de uso:
             continue
         
         # Procesar evento
-        detection = process_event_file(model, mseed_path, args.verbose)
-        
-        # Registrar estadísticas
-        if detection['num_p'] > 1:
-            station_stats[estacion]['multi_p'] += 1
-        if detection['num_s'] > 1:
-            station_stats[estacion]['multi_s'] += 1
+        detection = process_event_file(model, mseed_path, args.min_proba_p, args.min_proba_s, args.verbose)
         
         # Preparar resultado
         result_row = {
@@ -314,6 +317,7 @@ Ejemplos de uso:
     # =======================================================
     
     print(f"\n=== ANÁLISIS ESTADÍSTICO DEL CSV GENERADO ===")
+    print(f"Umbrales utilizados: P={args.min_proba_p}, S={args.min_proba_s}")
     
     # Estadísticas globales
     total_events = len(df_results)
@@ -327,6 +331,11 @@ Ejemplos de uso:
     one_s = (df_results['Num-S'] == 1).sum()
     multi_s = (df_results['Num-S'] > 1).sum()
     
+    # Contar eventos con datos válidos (no NA) - NUEVA LÓGICA
+    valid_data_p = (df_results['T-P'] != 'NA').sum()
+    valid_data_s = (df_results['T-S'] != 'NA').sum()
+    valid_data_both = ((df_results['T-P'] != 'NA') & (df_results['T-S'] != 'NA')).sum()
+    
     # Estadísticas por estación
     print(f"\n=== ESTADÍSTICAS POR ESTACIÓN ===")
     for estacion in sorted(df_results['Estacion'].unique()):
@@ -336,12 +345,16 @@ Ejemplos de uso:
         est_multi_p = (subset['Num-P'] > 1).sum()
         est_zero_s = (subset['Num-S'] == 0).sum()
         est_multi_s = (subset['Num-S'] > 1).sum()
+        est_valid_p = (subset['T-P'] != 'NA').sum()
+        est_valid_s = (subset['T-S'] != 'NA').sum()
         
         print(f"{estacion:>6}: Total={est_total:>3}, "
               f"Zero-P={est_zero_p:>3} ({100*est_zero_p/est_total:.1f}%), "
               f"Multi-P={est_multi_p:>3} ({100*est_multi_p/est_total:.1f}%), "
+              f"Valid-P={est_valid_p:>3} ({100*est_valid_p/est_total:.1f}%), "
               f"Zero-S={est_zero_s:>3} ({100*est_zero_s/est_total:.1f}%), "
-              f"Multi-S={est_multi_s:>3} ({100*est_multi_s/est_total:.1f}%)")
+              f"Multi-S={est_multi_s:>3} ({100*est_multi_s/est_total:.1f}%), "
+              f"Valid-S={est_valid_s:>3} ({100*est_valid_s/est_total:.1f}%)")
     
     # Estadísticas globales
     print(f"\n=== ESTADÍSTICAS GLOBALES ===")
@@ -349,49 +362,67 @@ Ejemplos de uso:
     print(f"Eventos sin P detectadas: {zero_p} ({100*zero_p/total_events:.1f}%)")
     print(f"Eventos con exactamente 1 P: {one_p} ({100*one_p/total_events:.1f}%)")
     print(f"Eventos con múltiples P: {multi_p} ({100*multi_p/total_events:.1f}%)")
+    print(f"Eventos con datos P válidos: {valid_data_p} ({100*valid_data_p/total_events:.1f}%)")
     print(f"Eventos sin S detectadas: {zero_s} ({100*zero_s/total_events:.1f}%)")
     print(f"Eventos con exactamente 1 S: {one_s} ({100*one_s/total_events:.1f}%)")
     print(f"Eventos con múltiples S: {multi_s} ({100*multi_s/total_events:.1f}%)")
+    print(f"Eventos con datos S válidos: {valid_data_s} ({100*valid_data_s/total_events:.1f}%)")
     
-    # Eventos válidos (exactamente 1 P y 1 S)
-    valid_both = ((df_results['Num-P'] == 1) & (df_results['Num-S'] == 1)).sum()
+    # Eventos válidos
+    print(f"\n=== EVENTOS CON DATOS UTILIZABLES ===")
+    print(f"Eventos con datos P utilizables: {valid_data_p} ({100*valid_data_p/total_events:.1f}%)")
+    print(f"Eventos con datos S utilizables: {valid_data_s} ({100*valid_data_s/total_events:.1f}%)")
+    print(f"Eventos con ambos datos utilizables: {valid_data_both} ({100*valid_data_both/total_events:.1f}%)")
     
-    print(f"\n=== EVENTOS VÁLIDOS ===")
-    print(f"Eventos con exactamente 1 P: {one_p} ({100*one_p/total_events:.1f}%)")
-    print(f"Eventos con exactamente 1 S: {one_s} ({100*one_s/total_events:.1f}%)")
-    print(f"Eventos con exactamente 1 P y 1 S: {valid_both} ({100*valid_both/total_events:.1f}%)")
-    
-    # Estadísticas adicionales de calidad
+    # Estadísticas de calidad mejoradas
     print(f"\n=== CALIDAD DE DETECCIÓN ===")
-    if one_p > 0:
-        p_detected_with_s = ((df_results['Num-P'] == 1) & (df_results['Num-S'] >= 1)).sum()
-        print(f"Eventos con P detectada que también tienen S: {p_detected_with_s}/{one_p} ({100*p_detected_with_s/one_p:.1f}%)")
+    if valid_data_p > 0:
+        p_with_s = ((df_results['T-P'] != 'NA') & (df_results['T-S'] != 'NA')).sum()
+        print(f"Eventos con P detectada que también tienen S: {p_with_s}/{valid_data_p} ({100*p_with_s/valid_data_p:.1f}%)")
     
-    if one_s > 0:
-        s_detected_with_p = ((df_results['Num-S'] == 1) & (df_results['Num-P'] >= 1)).sum()
-        print(f"Eventos con S detectada que también tienen P: {s_detected_with_p}/{one_s} ({100*s_detected_with_p/one_s:.1f}%)")
+    if valid_data_s > 0:
+        s_with_p = ((df_results['T-S'] != 'NA') & (df_results['T-P'] != 'NA')).sum()
+        print(f"Eventos con S detectada que también tienen P: {s_with_p}/{valid_data_s} ({100*s_with_p/valid_data_s:.1f}%)")
     
-    # Resumen de utilidad del modelo
-    print(f"\n=== RESUMEN DE UTILIDAD ===")
-    print(f"Eventos completamente inútiles (0 P, 0 S): {((df_results['Num-P'] == 0) & (df_results['Num-S'] == 0)).sum()}")
-    print(f"Eventos parcialmente útiles (solo P o solo S): {((df_results['Num-P'] == 1) & (df_results['Num-S'] != 1)).sum() + ((df_results['Num-P'] != 1) & (df_results['Num-S'] == 1)).sum()}")
-    print(f"Eventos completamente útiles (1 P y 1 S): {valid_both}")
-    print(f"Eventos problemáticos (múltiples detecciones): {multi_p + multi_s}")
+    # Análisis de múltiples detecciones pero con mejor pick
+    multi_p_with_data = ((df_results['Num-P'] > 1) & (df_results['T-P'] != 'NA')).sum()
+    multi_s_with_data = ((df_results['Num-S'] > 1) & (df_results['T-S'] != 'NA')).sum()
     
-    # Distribución de probabilidades para detecciones válidas
-    valid_p_probs = df_results[(df_results['Num-P'] == 1) & (df_results['Pond T-P'] != 'NA')]['Pond T-P']
-    valid_s_probs = df_results[(df_results['Num-S'] == 1) & (df_results['Pond T-S'] != 'NA')]['Pond T-S']
+    print(f"\n=== EFECTIVIDAD DE SELECCIÓN DE MEJOR PICK ===")
+    if multi_p > 0:
+        print(f"Múltiples P con mejor pick seleccionado: {multi_p_with_data}/{multi_p} ({100*multi_p_with_data/multi_p:.1f}%)")
+    if multi_s > 0:
+        print(f"Múltiples S con mejor pick seleccionado: {multi_s_with_data}/{multi_s} ({100*multi_s_with_data/multi_s:.1f}%)")
+    
+    # Resumen de utilidad actualizado
+    no_detections = ((df_results['Num-P'] == 0) & (df_results['Num-S'] == 0)).sum()
+    partial_detections = ((df_results['T-P'] != 'NA') & (df_results['T-S'] == 'NA')).sum() + \
+                        ((df_results['T-P'] == 'NA') & (df_results['T-S'] != 'NA')).sum()
+    
+    print(f"\n=== RESUMEN DE UTILIDAD ACTUALIZADO ===")
+    print(f"Eventos sin detecciones: {no_detections} ({100*no_detections/total_events:.1f}%)")
+    print(f"Eventos con una fase utilizable: {partial_detections} ({100*partial_detections/total_events:.1f}%)")
+    print(f"Eventos con ambas fases utilizables: {valid_data_both} ({100*valid_data_both/total_events:.1f}%)")
+    print(f"Total eventos utilizables: {valid_data_p + valid_data_s - valid_data_both} ({100*(valid_data_p + valid_data_s - valid_data_both)/total_events:.1f}%)")
+    
+    # Distribución de probabilidades para picks seleccionados
+    valid_p_probs = df_results[(df_results['T-P'] != 'NA') & (df_results['Pond T-P'] != 'NA')]['Pond T-P']
+    valid_s_probs = df_results[(df_results['T-S'] != 'NA') & (df_results['Pond T-S'] != 'NA')]['Pond T-S']
     
     if len(valid_p_probs) > 0:
-        print(f"\n=== DISTRIBUCIÓN DE PROBABILIDADES ===")
-        print(f"Probabilidades P válidas: media={float(valid_p_probs.mean()):.3f}, "
-              f"min={float(valid_p_probs.min()):.3f}, max={float(valid_p_probs.max()):.3f}")
+        print(f"\n=== DISTRIBUCIÓN DE PROBABILIDADES DE PICKS SELECCIONADOS ===")
+        print(f"Probabilidades P seleccionadas: N={len(valid_p_probs)}, "
+              f"media={float(valid_p_probs.mean()):.3f}, "
+              f"min={float(valid_p_probs.min()):.3f}, "
+              f"max={float(valid_p_probs.max()):.3f}")
     
     if len(valid_s_probs) > 0:
         if len(valid_p_probs) == 0:
-            print(f"\n=== DISTRIBUCIÓN DE PROBABILIDADES ===")
-        print(f"Probabilidades S válidas: media={float(valid_s_probs.mean()):.3f}, "
-              f"min={float(valid_s_probs.min()):.3f}, max={float(valid_s_probs.max()):.3f}")
+            print(f"\n=== DISTRIBUCIÓN DE PROBABILIDADES DE PICKS SELECCIONADOS ===")
+        print(f"Probabilidades S seleccionadas: N={len(valid_s_probs)}, "
+              f"media={float(valid_s_probs.mean()):.3f}, "
+              f"min={float(valid_s_probs.min()):.3f}, "
+              f"max={float(valid_s_probs.max()):.3f}")
     
     print(f"\n=== Evaluación completada ===")
     print(f"Resultados disponibles en: {args.csv_output}")
