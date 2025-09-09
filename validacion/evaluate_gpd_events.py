@@ -374,6 +374,41 @@ Ejemplos de uso:
     print(f"Eventos con datos S utilizables: {valid_data_s} ({100*valid_data_s/total_events:.1f}%)")
     print(f"Eventos con ambos datos utilizables: {valid_data_both} ({100*valid_data_both/total_events:.1f}%)")
     
+    # Análisis de correcciones aplicadas
+    print(f"\n=== ANÁLISIS DE CORRECCIONES P-S ===")
+    if 'Corregido' in df_results.columns and correcciones_aplicadas > 0:
+        eventos_corregidos = df_results[df_results['Corregido'] == True]
+        
+        print(f"Total correcciones aplicadas: {correcciones_aplicadas}")
+        print(f"Porcentaje de eventos corregidos: {100*correcciones_aplicadas/total_events:.1f}%")
+        print(f"Porcentaje de eventos con ambas fases corregidos: {100*correcciones_aplicadas/valid_data_both:.1f}%")
+        
+        print(f"\nEventos corregidos por estación:")
+        for estacion in sorted(eventos_corregidos['Estacion'].unique()):
+            count = len(eventos_corregidos[eventos_corregidos['Estacion'] == estacion])
+            total_est = len(df_results[df_results['Estacion'] == estacion])
+            print(f"  {estacion}: {count} de {total_est} eventos ({100*count/total_est:.1f}%)")
+        
+        # Distribución de probabilidades en eventos corregidos
+        prob_p_corr = eventos_corregidos[(eventos_corregidos['Pond T-P'] != 'NA')]['Pond T-P']
+        prob_s_corr = eventos_corregidos[(eventos_corregidos['Pond T-S'] != 'NA')]['Pond T-S']
+        
+        if len(prob_p_corr) > 0:
+            print(f"\nProbabilidades en eventos corregidos:")
+            print(f"  P corregidas: media={float(prob_p_corr.mean()):.3f}, "
+                  f"min={float(prob_p_corr.min()):.3f}, max={float(prob_p_corr.max()):.3f}")
+        
+        if len(prob_s_corr) > 0:
+            print(f"  S corregidas: media={float(prob_s_corr.mean()):.3f}, "
+                  f"min={float(prob_s_corr.min()):.3f}, max={float(prob_s_corr.max()):.3f}")
+    
+    elif 'Corregido' in df_results.columns:
+        print("No se aplicaron correcciones P-S en este procesamiento")
+    else:
+        print("Información de correcciones no disponible (columna 'Corregido' faltante)")
+        print("Esto puede indicar que el programa no detectó casos que requirieran corrección")
+        print("o que hubo un problema en el procesamiento de correcciones")
+    
     # Estadísticas de calidad mejoradas
     print(f"\n=== CALIDAD DE DETECCIÓN ===")
     if valid_data_p > 0:
