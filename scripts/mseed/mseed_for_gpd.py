@@ -1,26 +1,14 @@
 #!/usr/bin/env python
 """
 Script para preprocesar archivos mseed para uso con modelo GPD
-Combina remuestreo, filtrado y preprocesamiento completo
-Maneja archivos de un solo canal replicándolo a 3 canales
-Procesa archivos definidos en un CSV y calcula SNR para fases P y S
+Versión 2.0 - Procesamiento basado en CSV con cálculo de SNR y diagnóstico de errores
 
 Uso: 
-
-# Procesamiento usando archivo CSV
-python preprocess_mseed_for_gpd.py -I dataset.csv -O /path/to/output/ --input-freq 250
-
-# Con información detallada
-python preprocess_mseed_for_gpd.py -I dataset.csv -O /path/to/output/ --input-freq 100 -V
-
-# Con parámetros personalizados
-python preprocess_mseed_for_gpd.py -I dataset.csv -O /path/to/output/ --input-freq 64 --target-freq 100 --freq-min 2.0 --freq-max 25.0
-
+python preprocess_mseed_for_gpd_v2.py -I dataset.csv -O /path/to/output/ --input-freq 250 -V
 """
 
 import os
 import argparse
-import glob
 import pandas as pd
 import obspy.core as oc
 import numpy as np
@@ -33,31 +21,27 @@ def calculate_snr(trace, arrival_time, pre_window=5.0, post_window=5.0):
     """
     Calcula el SNR (Signal-to-Noise Ratio) para una fase sísmica
     
-    Parameters:
-    -----------
-    trace : obspy.Trace
-        Traza sísmica
-    arrival_time : UTCDateTime
-        Tiempo de arribo de la fase
-    pre_window : float
-        Ventana antes del arribo para calcular el ruido (segundos)
-    post_window : float
-        Ventana después del arribo para calcular la señal (segundos)
-    
     Returns:
     --------
-    float : SNR en dB
+    tuple: (snr_db, error_message)
     """
     try:
-        # Convertir arrival_time a UTCDateTime si es string
+        # Verificar si arrival_time es válido
+        if pd.isna(arrival_time) or arrival_time == '' or str(arrival_time).strip() == '':
+            return np.nan, "Tiempo de arribo vacío o NaN"
+        
+        # Convertir arrival_time a UTCDateTime
         if isinstance(arrival_time, str):
             arrival_time = UTCDateTime(arrival_time)
-        elif pd.isna(arrival_time) or arrival_time == '':
-            return np.nan
-            
+        elif isinstance(arrival_time, (int, float)):
+            return np.nan, "Tiempo de arribo es numérico (se esperaba string de fecha)"
+        
         # Verificar que el tiempo de arribo esté dentro de la traza
-        if arrival_time < trace.stats.starttime or arrival_time > trace.stats.endtime:
-            return np.nan
+        if arrival_time < trace.stats.starttime:
+            return np.nan, f"Tiempo de arribo antes del inicio de datos ({arrival_time} < {trace.stats.starttime})"
+        
+        if arrival_time > trace.stats.endtime:
+            return np.nan, f"Tiempo de arribo después del final de datos ({arrival_time} > {trace.stats.endtime})"
         
         # Calcular ventanas temporales
         noise_start = arrival_time - pre_window
@@ -65,18 +49,33 @@ def calculate_snr(trace, arrival_time, pre_window=5.0, post_window=5.0):
         signal_start = arrival_time
         signal_end = arrival_time + post_window
         
-        # Verificar que las ventanas estén dentro de los datos
-        if (noise_start < trace.stats.starttime or 
-            signal_end > trace.stats.endtime):
-            return np.nan
+        # Verificar y ajustar ventana de ruido si está fuera de datos
+        if noise_start < trace.stats.starttime:
+            # Reducir ventana de ruido a 1s
+            pre_window = 1.0
+            noise_start = arrival_time - pre_window
+            noise_end = arrival_time
+            
+            # Si aún está fuera, usar el tiempo disponible
+            if noise_start < trace.stats.starttime:
+                pre_window = float(arrival_time - trace.stats.starttime)
+                if pre_window < 0.1:  # Mínimo 0.1s
+                    return np.nan, f"Arribo muy cerca del inicio (solo {pre_window:.2f}s disponibles para ruido)"
+                noise_start = trace.stats.starttime
+        
+        if signal_end > trace.stats.endtime:
+            return np.nan, f"Ventana de señal fuera de datos (necesita {post_window}s después del arribo)"
         
         # Obtener datos de ruido y señal
         trace_copy = trace.copy()
         noise_trace = trace_copy.slice(noise_start, noise_end)
         signal_trace = trace_copy.slice(signal_start, signal_end)
         
-        if len(noise_trace.data) == 0 or len(signal_trace.data) == 0:
-            return np.nan
+        if len(noise_trace.data) == 0:
+            return np.nan, "Ventana de ruido vacía después del slice"
+        
+        if len(signal_trace.data) == 0:
+            return np.nan, "Ventana de señal vacía después del slice"
         
         # Calcular RMS del ruido y la señal
         noise_rms = np.sqrt(np.mean(noise_trace.data**2))
@@ -84,41 +83,21 @@ def calculate_snr(trace, arrival_time, pre_window=5.0, post_window=5.0):
         
         # Evitar división por cero
         if noise_rms == 0:
-            return np.inf if signal_rms > 0 else np.nan
+            return np.nan, "RMS del ruido = 0 (señal plana en ventana de ruido)"
         
         # SNR en dB
         snr_db = 20 * np.log10(signal_rms / noise_rms)
         
-        return snr_db
+        return snr_db, None
         
     except Exception as e:
-        print(f"    Error calculando SNR: {e}")
-        return np.nan
+        return np.nan, f"Error inesperado: {str(e)}"
 
 def preprocess_mseed_file(input_file, output_file, input_freq, target_freq=100.0, 
                          freq_min=1.0, freq_max=20.0, apply_resample=True, 
                          apply_filter=True, verbose=False):
     """
     Preprocesa un archivo mseed para uso con GPD
-    
-    Parameters:
-    -----------
-    input_file : str
-        Archivo mseed de entrada
-    output_file : str  
-        Archivo mseed de salida
-    input_freq : float
-        Frecuencia de muestreo de entrada
-    target_freq : float
-        Frecuencia de muestreo objetivo (default: 100.0 Hz)
-    freq_min, freq_max : float
-        Frecuencias del filtro pasa banda
-    apply_resample : bool
-        Si aplicar remuestreo
-    apply_filter : bool
-        Si aplicar filtro pasa banda
-    verbose : bool
-        Mostrar información detallada
     
     Returns:
     --------
@@ -150,17 +129,17 @@ def preprocess_mseed_file(input_file, output_file, input_freq, target_freq=100.0
             
             # Canal North (N)
             tr_n = original_trace.copy()
-            tr_n.stats.channel = tr_n.stats.channel[:-1] + 'N'  # Cambiar último carácter a N
+            tr_n.stats.channel = tr_n.stats.channel[:-1] + 'N'
             st.append(tr_n)
             
             # Canal East (E)
             tr_e = original_trace.copy()
-            tr_e.stats.channel = tr_e.stats.channel[:-1] + 'E'  # Cambiar último carácter a E
+            tr_e.stats.channel = tr_e.stats.channel[:-1] + 'E'
             st.append(tr_e)
             
             # Canal Z (vertical)
             tr_z = original_trace.copy()
-            tr_z.stats.channel = tr_z.stats.channel[:-1] + 'Z'  # Cambiar último carácter a Z
+            tr_z.stats.channel = tr_z.stats.channel[:-1] + 'Z'
             st.append(tr_z)
             
             if verbose:
@@ -196,7 +175,7 @@ def preprocess_mseed_file(input_file, output_file, input_freq, target_freq=100.0
                 print(f"    Ventana sincronizada: {latest_start} - {earliest_stop}")
                 print(f"    Duración: {earliest_stop - latest_start} s")
         
-        # Aplicar preprocesamiento (similar a gpd_chunked_processing)
+        # Aplicar preprocesamiento
         if verbose:
             print("  Aplicando preprocesamiento...")
         
@@ -280,31 +259,23 @@ def preprocess_mseed_file(input_file, output_file, input_freq, target_freq=100.0
         print(f"ERROR procesando {input_file}: {e}")
         return False, 0, None
 
-def calculate_snr_for_phases(stream, tp_time, ts_time, verbose=False):
+def calculate_snr_for_phases(stream, tp_time, ts_time, file_name, verbose=False):
     """
-    Calcula SNR para las fases P y S usando el canal con mejor SNR
-    
-    Parameters:
-    -----------
-    stream : obspy.Stream
-        Stream procesado
-    tp_time : str o UTCDateTime
-        Tiempo de arribo de la fase P
-    ts_time : str o UTCDateTime  
-        Tiempo de arribo de la fase S
-    verbose : bool
-        Mostrar información detallada
-        
-    Returns:
-    --------
-    tuple: (snr_p, snr_s)
+    Calcula SNR para las fases P y S
     """
     
     if stream is None or len(stream) == 0:
-        return np.nan, np.nan
+        return np.nan, np.nan, "Stream vacío o None", "Stream vacío o None"
+    
+    if verbose:
+        print("  Calculando SNR...")
+        print(f"    T-P: '{tp_time}' (tipo: {type(tp_time)})")
+        print(f"    T-S: '{ts_time}' (tipo: {type(ts_time)})")
     
     snr_p_values = []
     snr_s_values = []
+    error_p = None
+    error_s = None
     
     # Calcular SNR para cada canal
     for trace in stream:
@@ -312,31 +283,47 @@ def calculate_snr_for_phases(stream, tp_time, ts_time, verbose=False):
             print(f"    Calculando SNR para canal {trace.stats.channel}")
         
         # SNR para fase P
-        if not pd.isna(tp_time) and tp_time != '':
-            snr_p = calculate_snr(trace, tp_time)
-            if not np.isnan(snr_p):
-                snr_p_values.append(snr_p)
-                if verbose:
-                    print(f"      SNR-P: {snr_p:.2f} dB")
+        snr_p, err_p = calculate_snr(trace, tp_time)
+        if not np.isnan(snr_p):
+            snr_p_values.append(snr_p)
+            if verbose:
+                print(f"      SNR-P: {snr_p:.2f} dB")
+        else:
+            if error_p is None:  # Guardar solo el primer error
+                error_p = err_p
+            if verbose:
+                print(f"      SNR-P: Fallo - {err_p}")
         
         # SNR para fase S
-        if not pd.isna(ts_time) and ts_time != '':
-            snr_s = calculate_snr(trace, ts_time)
-            if not np.isnan(snr_s):
-                snr_s_values.append(snr_s)
-                if verbose:
-                    print(f"      SNR-S: {snr_s:.2f} dB")
+        snr_s, err_s = calculate_snr(trace, ts_time)
+        if not np.isnan(snr_s):
+            snr_s_values.append(snr_s)
+            if verbose:
+                print(f"      SNR-S: {snr_s:.2f} dB")
+        else:
+            if error_s is None:  # Guardar solo el primer error
+                error_s = err_s
+            if verbose:
+                print(f"      SNR-S: Fallo - {err_s}")
     
     # Usar el mejor SNR (máximo) de todos los canales
     final_snr_p = np.max(snr_p_values) if snr_p_values else np.nan
     final_snr_s = np.max(snr_s_values) if snr_s_values else np.nan
     
-    if verbose and snr_p_values:
-        print(f"    SNR-P final (máximo): {final_snr_p:.2f} dB")
-    if verbose and snr_s_values:
-        print(f"    SNR-S final (máximo): {final_snr_s:.2f} dB")
+    if verbose:
+        if snr_p_values:
+            print(f"    SNR-P final (máximo): {final_snr_p:.2f} dB")
+        if snr_s_values:
+            print(f"    SNR-S final (máximo): {final_snr_s:.2f} dB")
     
-    return final_snr_p, final_snr_s
+    # Reportar errores solo si no se pudo calcular en ningún canal
+    if np.isnan(final_snr_p) and error_p:
+        print(f"❌ {file_name}: SNR-P - {error_p}")
+    
+    if np.isnan(final_snr_s) and error_s:
+        print(f"❌ {file_name}: SNR-S - {error_s}")
+    
+    return final_snr_p, final_snr_s, error_p, error_s
 
 def process_csv_dataset(csv_file, output_dir, input_freq, target_freq=100.0, 
                        freq_min=1.0, freq_max=20.0, apply_resample=True, 
@@ -381,16 +368,17 @@ def process_csv_dataset(csv_file, output_dir, input_freq, target_freq=100.0,
             
             if verbose:
                 print(f"\n--- Procesando registro {idx+1}/{len(df)} ---")
-                print(f"Estación: {estacion}")
-                print(f"Archivo: {mseed_filename}")
-                print(f"T-P: {tp_time}")
-                print(f"T-S: {ts_time}")
+                print(f"Estación: {estacion}, Archivo: {mseed_filename}")
+            else:
+                # Solo mostrar progreso cada 10 archivos
+                if (idx + 1) % 10 == 0 or idx == 0:
+                    print(f"Procesando... {idx+1}/{len(df)}")
             
             # Construir ruta completa del archivo de entrada
             input_file = os.path.join(MSEED_DIR, mseed_filename)
             
             if not os.path.exists(input_file):
-                print(f"ERROR: No se encuentra el archivo {input_file}")
+                print(f"❌ {mseed_filename}: Archivo no encontrado en {input_file}")
                 fail_count += 1
                 continue
             
@@ -408,11 +396,8 @@ def process_csv_dataset(csv_file, output_dir, input_freq, target_freq=100.0,
                 total_channels += channels
                 
                 # Calcular SNR para las fases P y S
-                if verbose:
-                    print("  Calculando SNR...")
-                
-                snr_p, snr_s = calculate_snr_for_phases(
-                    processed_stream, tp_time, ts_time, verbose
+                snr_p, snr_s, error_p, error_s = calculate_snr_for_phases(
+                    processed_stream, tp_time, ts_time, mseed_filename, verbose
                 )
                 
                 # Actualizar DataFrame con los valores de SNR
@@ -420,10 +405,9 @@ def process_csv_dataset(csv_file, output_dir, input_freq, target_freq=100.0,
                 df.at[idx, 'SNR-S'] = snr_s
                 
                 if verbose:
-                    if not np.isnan(snr_p):
-                        print(f"  ✓ SNR-P: {snr_p:.2f} dB")
-                    if not np.isnan(snr_s):
-                        print(f"  ✓ SNR-S: {snr_s:.2f} dB")
+                    print(f"  Valores guardados:")
+                    print(f"    SNR-P: {snr_p if not np.isnan(snr_p) else 'NaN'}")
+                    print(f"    SNR-S: {snr_s if not np.isnan(snr_s) else 'NaN'}")
                 
             else:
                 fail_count += 1
@@ -442,15 +426,18 @@ def process_csv_dataset(csv_file, output_dir, input_freq, target_freq=100.0,
         snr_p_valid = df['SNR-P'].dropna()
         snr_s_valid = df['SNR-S'].dropna()
         
+        print(f"\n=== RESUMEN SNR ===")
         if len(snr_p_valid) > 0:
-            print(f"  SNR-P: media={snr_p_valid.mean():.2f} dB, "
-                  f"mediana={snr_p_valid.median():.2f} dB, "
-                  f"rango=[{snr_p_valid.min():.2f}, {snr_p_valid.max():.2f}] dB")
+            print(f"SNR-P calculados: {len(snr_p_valid)}/{len(df)} ({100*len(snr_p_valid)/len(df):.1f}%)")
+            print(f"  Media: {snr_p_valid.mean():.2f} dB, Rango: [{snr_p_valid.min():.2f}, {snr_p_valid.max():.2f}] dB")
+        else:
+            print("SNR-P calculados: 0")
         
         if len(snr_s_valid) > 0:
-            print(f"  SNR-S: media={snr_s_valid.mean():.2f} dB, "
-                  f"mediana={snr_s_valid.median():.2f} dB, "
-                  f"rango=[{snr_s_valid.min():.2f}, {snr_s_valid.max():.2f}] dB")
+            print(f"SNR-S calculados: {len(snr_s_valid)}/{len(df)} ({100*len(snr_s_valid)/len(df):.1f}%)")
+            print(f"  Media: {snr_s_valid.mean():.2f} dB, Rango: [{snr_s_valid.min():.2f}, {snr_s_valid.max():.2f}] dB")
+        else:
+            print("SNR-S calculados: 0")
         
     except Exception as e:
         print(f"ERROR procesando CSV: {e}")
@@ -462,13 +449,10 @@ def main():
         epilog="""
 Ejemplos de uso:
   # Procesamiento básico usando CSV
-  python preprocess_mseed_for_gpd.py -I dataset.csv -O /path/to/output/ --input-freq 250 -V
+  python preprocess_mseed_for_gpd_v2.py -I dataset.csv -O /path/to/output/ --input-freq 250 -V
   
   # Con parámetros personalizados
-  python preprocess_mseed_for_gpd.py -I dataset.csv -O /path/to/output/ --input-freq 64 --target-freq 50 --freq-min 2.0 --freq-max 15.0
-  
-  # Solo preprocesamiento sin remuestreo
-  python preprocess_mseed_for_gpd.py -I dataset.csv -O /path/to/output/ --input-freq 100 --no-resample
+  python preprocess_mseed_for_gpd_v2.py -I dataset.csv -O /path/to/output/ --input-freq 64 --target-freq 50 --freq-min 2.0 --freq-max 15.0
         """)
     
     parser.add_argument('-I', '--input', type=str, required=True, 
@@ -492,7 +476,7 @@ Ejemplos de uso:
     
     args = parser.parse_args()
     
-    print("=== Preprocesador MSEED para GPD con cálculo de SNR ===")
+    print("=== Preprocesador MSEED para GPD v2.0 ===")
     print(f"Directorio base MSEED: {MSEED_DIR}")
     print(f"Archivo CSV de entrada: {args.input}")
     print(f"Frecuencia de entrada: {args.input_freq} Hz")
