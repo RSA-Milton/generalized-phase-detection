@@ -1,0 +1,75 @@
+**********************************************************************************
+Trabajo con directorios y archivos
+**********************************************************************************
+# Copiar archivos mseed desde Windows y guardarlos por meses
+cp /mnt/d/Dataset/test/*_202401* 202401/
+
+# Contar archivos dentro de subdirectorios
+find test/ -type f -name "*.mseed" -printf '%h\n' | sort | uniq -c
+
+# Mostrar arbol de directorios con tree
+tree test/ -d -h
+tree -L 2 -h
+
+**********************************************************************************
+
+
+**********************************************************************************
+# Prepara archivos mseed para pruebas de inferencia
+**********************************************************************************
+# Archivo de prueba TENG
+python mseed/preprocess_mseed_for_gpd.py -I /home/rsa/projects/gpd/data/tmp/TENG_20250827_040004.mseed -O /home/rsa/projects/gpd/data/tmp/TENG_20250827_100hz.mseed --input-freq 250 -V
+# Archivo individual básico
+python preprocess_mseed_for_gpd.py -I /home/rsa/projects/gpd/data/dataset/test_100/CHAI_20240113_223328.mseed  -O /home/rsa/projects/gpd/data/tmp/CHAI_20240113_223328_proc.mseed  --input-freq 64 -V
+* Procesamiento en lote de un directorio
+python preprocess_mseed_for_gpd.py -I /home/rsa/projects/gpd/data/dataset/test_1000/ -O /home/rsa/projects/gpd/data/mseed/test_1000/ --input-freq 64 --batch -V
+
+**V2025-09-12
+python mseed_for_gpd.py -I /home/rsa/projects/gpd/data/dataset/dataset_estratificado_1000.csv -O /home/rsa/projects/gpd/data/dataset/test_1000 --input-freq 64 -V > salida.txt
+
+**********************************************************************************
+
+
+**********************************************************************************
+# Pruebas de inferencia
+**********************************************************************************
+# Archivo de prueba TENG
+time python inferencia_keras.py -I /home/rsa/projects/gpd/data/tmp/TENG_20250827_100hz.mseed -O /home/rsa/projects/gpd/data/tmp/TENG_20250827_keras.out -V
+time python inferencia_keras.py -I /home/rsa/data/TENG/TENG_20250827_100hz.mseed -O /home/rsa/data/out/TENG_20250827_keras.out -V
+time python inferencia_keras.py -I /home/rsa/projects/gpd/data/mseed/test_1000/PORT_20240126_174247.mseed -O /home/rsa/projects/gpd/data/tmp/PORT_20240126_174247.out -V
+* Inferencia definitiva:
+python evaluate_gpd_events.py --min-proba-p 0.50 --min-proba-s 0.85 -V
+
+**********************************************************************************
+
+
+**********************************************************************************
+# Analisis de resultados
+**********************************************************************************
+* Comparativa
+python compare_analyst_gpd.py --analyst /home/rsa/projects/gpd/data/dataset/dataset_estratificado_1000.csv --gpd /home/rsa/projects/gpd/data/out/resultados_evaluacion_1000.csv -V
+python compare_analyst_gpd_enhanced.py --analyst /home/rsa/projects/gpd/data/dataset/dataset_estratificado_100_with_snr.csv --gpd /home/rsa/projects/gpd/data/out/resultados_evaluacion_100.csv --tolerance 0.5 1.0 2.0 5.0 -V
+
+**********************************************************************************
+
+
+**********************************************************************************
+# Pasos definitivos
+**********************************************************************************
+1. Generar el dataset test estatificado con csv SNR:
+path: /home/rsa/projects/gpd/scripts/mseed/
+ejecutar: python mseed_for_gpd.py -I /home/rsa/projects/gpd/data/dataset/dataset_estratificado_1000.csv -O /home/rsa/projects/gpd/data/dataset/test_1000 --input-freq 64 -V > salida.txt
+comprobar: Busacr SNR-P: NaN en archivo salida.txt
+
+2. Realizar inferencia:
+path: /home/rsa/projects/gpd/scripts/inferencia/
+editar directorios: MSEED_DIR, CSV_INPUT, CSV_OUTPUT en evaluate_gpd_events.py
+ejecutar: python evaluate_gpd_events.py --min-proba-p 0.55 --min-proba-s 0.85 -V
+
+3. Comparar resultados de GPD con los analistas
+path: /home/rsa/projects/gpd/scripts/utils
+crear: archivo en W10
+ejecutar: python compare_analyst_gpd_enhanced.py --analyst /home/rsa/projects/gpd/data/dataset/dataset_estratificado_1000_with_snr.csv --gpd /home/rsa/projects/gpd/data/out/resultados_evaluacion_1000.csv --tolerance 0.5 1.0 2.0 5.0 -V
+copiar: resultados de consola en archivo W10
+
+**********************************************************************************
