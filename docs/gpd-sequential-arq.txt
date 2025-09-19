@@ -1,0 +1,143 @@
+Cargando modelo desde: ./models/gpd_v2.keras
+OK: input_shape=(None, 400, 3), output_shape=(None, 3)
+
+=== Resumen de sequential_1 ===
+Model: "sequential_1"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ conv1d_1_1 (Conv1D)         (None, 400, 32)           2048      
+                                                                 
+ batch_normalization_1_1 (Ba  (None, 400, 32)          128       
+ tchNormalization)                                               
+                                                                 
+ activation_1_1 (Activation)  (None, 400, 32)          0         
+                                                                 
+ max_pooling1d_1_1 (MaxPooli  (None, 200, 32)          0         
+ ng1D)                                                           
+                                                                 
+ conv1d_2_1 (Conv1D)         (None, 200, 64)           30784     
+                                                                 
+ batch_normalization_2_1 (Ba  (None, 200, 64)          256       
+ tchNormalization)                                               
+                                                                 
+ activation_2_1 (Activation)  (None, 200, 64)          0         
+                                                                 
+ max_pooling1d_2_1 (MaxPooli  (None, 100, 64)          0         
+ ng1D)                                                           
+                                                                 
+ conv1d_3_1 (Conv1D)         (None, 100, 128)          90240     
+                                                                 
+ batch_normalization_3_1 (Ba  (None, 100, 128)         512       
+ tchNormalization)                                               
+                                                                 
+ activation_3_1 (Activation)  (None, 100, 128)         0         
+                                                                 
+ max_pooling1d_3_1 (MaxPooli  (None, 50, 128)          0         
+ ng1D)                                                           
+                                                                 
+ conv1d_4_1 (Conv1D)         (None, 50, 256)           295168    
+                                                                 
+ batch_normalization_4_1 (Ba  (None, 50, 256)          1024      
+ tchNormalization)                                               
+                                                                 
+ activation_4_1 (Activation)  (None, 50, 256)          0         
+                                                                 
+ max_pooling1d_4_1 (MaxPooli  (None, 25, 256)          0         
+ ng1D)                                                           
+                                                                 
+ flatten_1_1 (Flatten)       (None, 6400)              0         
+                                                                 
+ dense_1_1 (Dense)           (None, 200)               1280200   
+                                                                 
+ batch_normalization_5_1 (Ba  (None, 200)              800       
+ tchNormalization)                                               
+                                                                 
+ activation_5_1 (Activation)  (None, 200)              0         
+                                                                 
+ dense_2_1 (Dense)           (None, 200)               40200     
+                                                                 
+ batch_normalization_6_1 (Ba  (None, 200)              800       
+ tchNormalization)                                               
+                                                                 
+ activation_6_1 (Activation)  (None, 200)              0         
+                                                                 
+ dense_3_1 (Dense)           (None, 3)                 603       
+                                                                 
+ activation_7_1 (Activation)  (None, 3)                0         
+                                                                 
+=================================================================
+Total params: 1,742,763
+Trainable params: 1,741,003
+Non-trainable params: 1,760
+_________________________________________________________________
+
+=== Detalle por capa ===
+00 | conv1d_1_1                | Conv1D          | out=(None, 400, 32) | filters=32 kernel=(21,) stride=(1,) units=None activation=linear params=2048
+01 | batch_normalization_1_1   | BatchNormalization | out=(None, 400, 32) | filters=None kernel=None stride=None units=None activation=None params=128
+02 | activation_1_1            | Activation      | out=(None, 400, 32) | filters=None kernel=None stride=None units=None activation=relu params=0
+03 | max_pooling1d_1_1         | MaxPooling1D    | out=(None, 200, 32) | filters=None kernel=None stride=(2,) units=None activation=None params=0
+04 | conv1d_2_1                | Conv1D          | out=(None, 200, 64) | filters=64 kernel=(15,) stride=(1,) units=None activation=linear params=30784
+05 | batch_normalization_2_1   | BatchNormalization | out=(None, 200, 64) | filters=None kernel=None stride=None units=None activation=None params=256
+06 | activation_2_1            | Activation      | out=(None, 200, 64) | filters=None kernel=None stride=None units=None activation=relu params=0
+07 | max_pooling1d_2_1         | MaxPooling1D    | out=(None, 100, 64) | filters=None kernel=None stride=(2,) units=None activation=None params=0
+08 | conv1d_3_1                | Conv1D          | out=(None, 100, 128) | filters=128 kernel=(11,) stride=(1,) units=None activation=linear params=90240
+09 | batch_normalization_3_1   | BatchNormalization | out=(None, 100, 128) | filters=None kernel=None stride=None units=None activation=None params=512
+10 | activation_3_1            | Activation      | out=(None, 100, 128) | filters=None kernel=None stride=None units=None activation=relu params=0
+11 | max_pooling1d_3_1         | MaxPooling1D    | out=(None, 50, 128) | filters=None kernel=None stride=(2,) units=None activation=None params=0
+12 | conv1d_4_1                | Conv1D          | out=(None, 50, 256) | filters=256 kernel=(9,) stride=(1,) units=None activation=linear params=295168
+13 | batch_normalization_4_1   | BatchNormalization | out=(None, 50, 256) | filters=None kernel=None stride=None units=None activation=None params=1024
+14 | activation_4_1            | Activation      | out=(None, 50, 256) | filters=None kernel=None stride=None units=None activation=relu params=0
+15 | max_pooling1d_4_1         | MaxPooling1D    | out=(None, 25, 256) | filters=None kernel=None stride=(2,) units=None activation=None params=0
+16 | flatten_1_1               | Flatten         | out=(None, 6400) | filters=None kernel=None stride=None units=None activation=None params=0
+17 | dense_1_1                 | Dense           | out=(None, 200) | filters=None kernel=None stride=None units=200 activation=linear params=1280200
+18 | batch_normalization_5_1   | BatchNormalization | out=(None, 200) | filters=None kernel=None stride=None units=None activation=None params=800
+19 | activation_5_1            | Activation      | out=(None, 200) | filters=None kernel=None stride=None units=None activation=relu params=0
+20 | dense_2_1                 | Dense           | out=(None, 200) | filters=None kernel=None stride=None units=200 activation=linear params=40200
+21 | batch_normalization_6_1   | BatchNormalization | out=(None, 200) | filters=None kernel=None stride=None units=None activation=None params=800
+22 | activation_6_1            | Activation      | out=(None, 200) | filters=None kernel=None stride=None units=None activation=relu params=0
+23 | dense_3_1                 | Dense           | out=(None, 3) | filters=None kernel=None stride=None units=3 activation=linear params=603
+24 | activation_7_1            | Activation      | out=(None, 3) | filters=None kernel=None stride=None units=None activation=softmax params=0
+
+Total params (submodelo): 1742763
+
+=== Pesos por capa ===
+conv1d_1_1                -> conv1d_1_1/kernel:0                      (21, 3, 32)
+conv1d_1_1                -> conv1d_1_1/bias:0                        (32,)
+batch_normalization_1_1   -> batch_normalization_1_1/gamma:0          (32,)
+batch_normalization_1_1   -> batch_normalization_1_1/beta:0           (32,)
+batch_normalization_1_1   -> batch_normalization_1_1/moving_mean:0    (32,)
+batch_normalization_1_1   -> batch_normalization_1_1/moving_variance:0 (32,)
+conv1d_2_1                -> conv1d_2_1/kernel:0                      (15, 32, 64)
+conv1d_2_1                -> conv1d_2_1/bias:0                        (64,)
+batch_normalization_2_1   -> batch_normalization_2_1/gamma:0          (64,)
+batch_normalization_2_1   -> batch_normalization_2_1/beta:0           (64,)
+batch_normalization_2_1   -> batch_normalization_2_1/moving_mean:0    (64,)
+batch_normalization_2_1   -> batch_normalization_2_1/moving_variance:0 (64,)
+conv1d_3_1                -> conv1d_3_1/kernel:0                      (11, 64, 128)
+conv1d_3_1                -> conv1d_3_1/bias:0                        (128,)
+batch_normalization_3_1   -> batch_normalization_3_1/gamma:0          (128,)
+batch_normalization_3_1   -> batch_normalization_3_1/beta:0           (128,)
+batch_normalization_3_1   -> batch_normalization_3_1/moving_mean:0    (128,)
+batch_normalization_3_1   -> batch_normalization_3_1/moving_variance:0 (128,)
+conv1d_4_1                -> conv1d_4_1/kernel:0                      (9, 128, 256)
+conv1d_4_1                -> conv1d_4_1/bias:0                        (256,)
+batch_normalization_4_1   -> batch_normalization_4_1/gamma:0          (256,)
+batch_normalization_4_1   -> batch_normalization_4_1/beta:0           (256,)
+batch_normalization_4_1   -> batch_normalization_4_1/moving_mean:0    (256,)
+batch_normalization_4_1   -> batch_normalization_4_1/moving_variance:0 (256,)
+dense_1_1                 -> dense_1_1/kernel:0                       (6400, 200)
+dense_1_1                 -> dense_1_1/bias:0                         (200,)
+batch_normalization_5_1   -> batch_normalization_5_1/gamma:0          (200,)
+batch_normalization_5_1   -> batch_normalization_5_1/beta:0           (200,)
+batch_normalization_5_1   -> batch_normalization_5_1/moving_mean:0    (200,)
+batch_normalization_5_1   -> batch_normalization_5_1/moving_variance:0 (200,)
+dense_2_1                 -> dense_2_1/kernel:0                       (200, 200)
+dense_2_1                 -> dense_2_1/bias:0                         (200,)
+batch_normalization_6_1   -> batch_normalization_6_1/gamma:0          (200,)
+batch_normalization_6_1   -> batch_normalization_6_1/beta:0           (200,)
+batch_normalization_6_1   -> batch_normalization_6_1/moving_mean:0    (200,)
+batch_normalization_6_1   -> batch_normalization_6_1/moving_variance:0 (200,)
+dense_3_1                 -> dense_3_1/kernel:0                       (200, 3)
+dense_3_1                 -> dense_3_1/bias:0                         (3,)
+Diagrama exportado a sequential_1.png
