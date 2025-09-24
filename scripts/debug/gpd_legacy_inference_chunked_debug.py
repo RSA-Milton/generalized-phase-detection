@@ -1,5 +1,16 @@
 #!/usr/bin/env python
-# Versión debug de gpd_predict.py con optimizaciones de memoria
+"""
+GPD Legacy Chunked Inference Debug - Inferencia GPD para archivos grandes con procesamiento por chunks
+Versión debug optimizada para memoria que procesa archivos MSEED grandes dividiéndolos en segmentos
+
+Realiza inferencia GPD (detección de fases P/S) en archivos sísmicos grandes procesándolos
+en chunks para evitar problemas de memoria. Compatible con la implementación legacy de GPD.
+Lee una lista de archivos donde cada línea contiene los 3 componentes (N,E,Z) por estación.
+
+Ejemplo de uso:
+    python gpd_legacy_chunked_inference_debug.py -I file_list.txt -O picks_output.txt -V
+    python gpd_legacy_chunked_inference_debug.py -I stations.txt -O results.out --max-length 30000 -V
+"""
 
 import string
 import time

@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """
-Programa para análisis comparativo entre detecciones del analista humano y modelo GPD
+Programa para análisis comparativo entre detecciones del analista humano y métodos automáticos (GPD, STA/LTA, etc.)
 Analiza precisión temporal, tasas de detección, errores sistemáticos y métricas P/R/F1
 
 Uso:
-python compare_analyst_gpd.py --analyst eventos_analista.csv --gpd eventos_gpd.csv -V
-python compare_analyst_gpd.py --analyst eventos_analista.csv --gpd eventos_gpd.csv --output reporte_comparativo.csv --tolerance 1.0 2.0 5.0
+python compare_analyst-automated_events.py --analyst eventos_analista.csv --automated eventos_gpd.csv -V
+python compare_analyst-automated_events.py --analyst eventos_analista.csv --automated eventos_stalta.csv --output reporte_comparativo.csv --tolerance 1.0 2.0 5.0
 """
 
 import pandas as pd
@@ -60,10 +60,10 @@ def _tp_fp_fn_for_phase(df: pd.DataFrame, phase: str, tau: float) -> Tuple[int,i
     """Calcula TP, FP, FN para una fase específica con tolerancia tau"""
     if phase == "P":
         ta = df["T-P_analyst_dt"]
-        tg = df["T-P_gpd_dt"]
+        tg = df["T-P_automated_dt"]
     elif phase == "S":
         ta = df["T-S_analyst_dt"]
-        tg = df["T-S_gpd_dt"]
+        tg = df["T-S_automated_dt"]
     else:
         raise ValueError("phase debe ser 'P' o 'S'")
 
@@ -130,11 +130,11 @@ def analyze_station_performance(df_comparison, station):
     
     stats = {
         'total_eventos': len(station_data),
-        'detecciones_p': (station_data['T-P_gpd'].notna()).sum(),
-        'detecciones_s': (station_data['T-S_gpd'].notna()).sum(),
-        'detecciones_ambas': ((station_data['T-P_gpd'].notna()) & (station_data['T-S_gpd'].notna())).sum(),
-        'tasa_deteccion_p': (station_data['T-P_gpd'].notna()).sum() / len(station_data) * 100,
-        'tasa_deteccion_s': (station_data['T-S_gpd'].notna()).sum() / len(station_data) * 100,
+        'detecciones_p': (station_data['T-P_automated'].notna()).sum(),
+        'detecciones_s': (station_data['T-S_automated'].notna()).sum(),
+        'detecciones_ambas': ((station_data['T-P_automated'].notna()) & (station_data['T-S_automated'].notna())).sum(),
+        'tasa_deteccion_p': (station_data['T-P_automated'].notna()).sum() / len(station_data) * 100,
+        'tasa_deteccion_s': (station_data['T-S_automated'].notna()).sum() / len(station_data) * 100,
         'inversiones_fisicas': (station_data['inversion_fisica'] == True).sum(),
         'correcciones_aplicadas': (station_data['Corregido'] == True).sum() if 'Corregido' in station_data.columns else 0
     }
@@ -165,20 +165,20 @@ def generate_comparison_report(df_comparison, tolerance_list, prf1_metrics, outp
     """Genera reporte detallado de comparación incluyendo métricas P/R/F1"""
     
     print("=" * 80)
-    print("REPORTE COMPARATIVO: ANALISTA HUMANO vs MODELO GPD")
+    print("REPORTE COMPARATIVO: ANALISTA HUMANO vs MÉTODO AUTOMÁTICO")
     print("=" * 80)
     
     # Estadísticas generales
     total_eventos = len(df_comparison)
-    detecciones_p_gpd = (df_comparison['T-P_gpd'].notna()).sum()
-    detecciones_s_gpd = (df_comparison['T-S_gpd'].notna()).sum()
-    detecciones_ambas = ((df_comparison['T-P_gpd'].notna()) & (df_comparison['T-S_gpd'].notna())).sum()
+    detecciones_p_auto = (df_comparison['T-P_automated'].notna()).sum()
+    detecciones_s_auto = (df_comparison['T-S_automated'].notna()).sum()
+    detecciones_ambas = ((df_comparison['T-P_automated'].notna()) & (df_comparison['T-S_automated'].notna())).sum()
     
     print(f"\n1. ESTADÍSTICAS GENERALES DE DETECCIÓN")
     print("-" * 50)
     print(f"Total eventos analizados: {total_eventos}")
-    print(f"Eventos con P detectada por GPD: {detecciones_p_gpd} ({detecciones_p_gpd/total_eventos*100:.1f}%)")
-    print(f"Eventos con S detectada por GPD: {detecciones_s_gpd} ({detecciones_s_gpd/total_eventos*100:.1f}%)")
+    print(f"Eventos con P detectada por método automático: {detecciones_p_auto} ({detecciones_p_auto/total_eventos*100:.1f}%)")
+    print(f"Eventos con S detectada por método automático: {detecciones_s_auto} ({detecciones_s_auto/total_eventos*100:.1f}%)")
     print(f"Eventos con ambas fases detectadas: {detecciones_ambas} ({detecciones_ambas/total_eventos*100:.1f}%)")
     
     # Analizar inversiones físicas
@@ -412,24 +412,24 @@ def generate_comparison_report(df_comparison, tolerance_list, prf1_metrics, outp
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Análisis comparativo entre detecciones del analista y modelo GPD con métricas P/R/F1',
+        description='Análisis comparativo entre detecciones del analista y métodos automáticos con métricas P/R/F1',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Ejemplos de uso:
   # Análisis básico con tolerancia por defecto (1s)
-  python compare_analyst_gpd.py --analyst eventos_analista.csv --gpd eventos_gpd.csv
-  
+  python compare_analyst-automated_events.py --analyst eventos_analista.csv --automated eventos_gpd.csv
+
   # Con múltiples tolerancias y reporte de salida
-  python compare_analyst_gpd.py --analyst eventos_analista.csv --gpd eventos_gpd.csv --output reporte.xlsx --tolerance 0.5 1.0 2.0 5.0 -V
-  
-  # Solo estaciones específicas
-  python compare_analyst_gpd.py --analyst eventos_analista.csv --gpd eventos_gpd.csv --stations PORT CHAI --tolerance 1.0 2.0
+  python compare_analyst-automated_events.py --analyst eventos_analista.csv --automated eventos_gpd.csv --output reporte.xlsx --tolerance 0.5 1.0 2.0 5.0 -V
+
+  # Comparación con STA/LTA
+  python compare_analyst-automated_events.py --analyst eventos_analista.csv --automated eventos_stalta.csv --stations PORT CHAI --tolerance 1.0 2.0
         """)
     
     parser.add_argument('--analyst', type=str, required=True,
                        help='Archivo CSV con datos del analista humano')
-    parser.add_argument('--gpd', type=str, required=True,
-                       help='Archivo CSV con datos del modelo GPD')
+    parser.add_argument('--automated', type=str, required=True,
+                       help='Archivo CSV con datos del método automático (GPD, STA/LTA, etc.)')
     parser.add_argument('--output', type=str, default=None,
                        help='Archivo de salida para reporte detallado')
     parser.add_argument('--stations', nargs='+', default=None,
@@ -441,9 +441,9 @@ Ejemplos de uso:
     
     args = parser.parse_args()
     
-    print("=== ANÁLISIS COMPARATIVO ANALISTA vs GPD CON MÉTRICAS P/R/F1 ===")
+    print("=== ANÁLISIS COMPARATIVO ANALISTA vs MÉTODO AUTOMÁTICO CON MÉTRICAS P/R/F1 ===")
     print(f"Archivo analista: {args.analyst}")
-    print(f"Archivo GPD: {args.gpd}")
+    print(f"Archivo método automático: {args.automated}")
     print(f"Tolerancias temporales: {args.tolerance} segundos")
     
     # Verificar archivos
@@ -451,15 +451,15 @@ Ejemplos de uso:
         print(f"ERROR: Archivo del analista no encontrado: {args.analyst}")
         return
     
-    if not os.path.isfile(args.gpd):
-        print(f"ERROR: Archivo GPD no encontrado: {args.gpd}")
+    if not os.path.isfile(args.automated):
+        print(f"ERROR: Archivo del método automático no encontrado: {args.automated}")
         return
     
     # Cargar datos
     try:
         df_analyst = pd.read_csv(args.analyst)
-        df_gpd = pd.read_csv(args.gpd)
-        print(f"Datos cargados: {len(df_analyst)} eventos analista, {len(df_gpd)} eventos GPD")
+        df_automated = pd.read_csv(args.automated)
+        print(f"Datos cargados: {len(df_analyst)} eventos analista, {len(df_automated)} eventos automáticos")
     except Exception as e:
         print(f"ERROR cargando archivos: {e}")
         return
@@ -467,10 +467,10 @@ Ejemplos de uso:
     # Merge de datos por archivo mseed
     df_comparison = pd.merge(
         df_analyst[['Estacion', 'mseed', 'T-P', 'T-S', 'Pond T-P', 'Pond T-S']],
-        df_gpd,
+        df_automated,
         on=['Estacion', 'mseed'],
         how='inner',
-        suffixes=('_analyst', '_gpd')
+        suffixes=('_analyst', '_automated')
     )
     
     print(f"Eventos coincidentes para comparación: {len(df_comparison)}")
@@ -488,18 +488,18 @@ Ejemplos de uso:
     print("Procesando timestamps...")
     df_comparison['T-P_analyst_dt'] = df_comparison['T-P_analyst'].apply(parse_timestamp)
     df_comparison['T-S_analyst_dt'] = df_comparison['T-S_analyst'].apply(parse_timestamp)
-    df_comparison['T-P_gpd_dt'] = df_comparison['T-P_gpd'].apply(parse_timestamp)
-    df_comparison['T-S_gpd_dt'] = df_comparison['T-S_gpd'].apply(parse_timestamp)
+    df_comparison['T-P_automated_dt'] = df_comparison['T-P_automated'].apply(parse_timestamp)
+    df_comparison['T-S_automated_dt'] = df_comparison['T-S_automated'].apply(parse_timestamp)
     
     # Calcular errores temporales
     df_comparison['error_temporal_P'] = df_comparison.apply(
-        lambda row: (row['T-P_gpd_dt'] - row['T-P_analyst_dt']).total_seconds() 
-        if row['T-P_gpd_dt'] and row['T-P_analyst_dt'] else None, axis=1
+        lambda row: (row['T-P_automated_dt'] - row['T-P_analyst_dt']).total_seconds()
+        if row['T-P_automated_dt'] and row['T-P_analyst_dt'] else None, axis=1
     )
-    
+
     df_comparison['error_temporal_S'] = df_comparison.apply(
-        lambda row: (row['T-S_gpd_dt'] - row['T-S_analyst_dt']).total_seconds() 
-        if row['T-S_gpd_dt'] and row['T-S_analyst_dt'] else None, axis=1
+        lambda row: (row['T-S_automated_dt'] - row['T-S_analyst_dt']).total_seconds()
+        if row['T-S_automated_dt'] and row['T-S_analyst_dt'] else None, axis=1
     )
     
     # Calcular diferencias P-S usando vectorización
@@ -511,16 +511,16 @@ Ejemplos de uso:
         df_comparison.loc[mask_both_analyst, 'T-P_analyst_dt']
     ).dt.total_seconds()
     
-    # Para GPD
-    mask_both_gpd = pd.notna(df_comparison['T-P_gpd_dt']) & pd.notna(df_comparison['T-S_gpd_dt'])
-    df_comparison['diff_PS_gpd'] = pd.NA
-    df_comparison.loc[mask_both_gpd, 'diff_PS_gpd'] = (
-        df_comparison.loc[mask_both_gpd, 'T-S_gpd_dt'] - 
-        df_comparison.loc[mask_both_gpd, 'T-P_gpd_dt']
+    # Para método automático
+    mask_both_auto = pd.notna(df_comparison['T-P_automated_dt']) & pd.notna(df_comparison['T-S_automated_dt'])
+    df_comparison['diff_PS_automated'] = pd.NA
+    df_comparison.loc[mask_both_auto, 'diff_PS_automated'] = (
+        df_comparison.loc[mask_both_auto, 'T-S_automated_dt'] -
+        df_comparison.loc[mask_both_auto, 'T-P_automated_dt']
     ).dt.total_seconds()
     
     # Detectar inversiones físicas
-    df_comparison['inversion_fisica'] = df_comparison['diff_PS_gpd'] < 0
+    df_comparison['inversion_fisica'] = df_comparison['diff_PS_automated'] < 0
     
     # Clasificar calidad de detección
     df_comparison['calidad_deteccion'] = df_comparison.apply(

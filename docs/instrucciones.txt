@@ -69,7 +69,7 @@ ejecutar: python evaluate_gpd_events.py --min-proba-p 0.55 --min-proba-s 0.85 -V
 3. Comparar resultados de GPD con los analistas
 path: /home/rsa/projects/gpd/scripts/utils
 crear: archivo en W10
-ejecutar: python compare_analyst_gpd_enhanced.py --analyst /home/rsa/projects/gpd/data/dataset/dataset_estratificado_1000_with_snr.csv --gpd /home/rsa/projects/gpd/data/out/resultados_evaluacion_1000.csv --tolerance 0.5 1.0 2.0 5.0 -V
+ejecutar: python compare_analyst-automated_events.py --analyst /home/rsa/projects/gpd/data/dataset/dataset_estratificado_1000_with_snr.csv --automated /home/rsa/projects/gpd/data/out/resultados_evaluacion_1000.csv --tolerance 0.5 1.0 2.0 5.0 -V
 copiar: resultados de consola en archivo W10
 
 **********************************************************************************
