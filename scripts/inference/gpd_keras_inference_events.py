@@ -4,8 +4,8 @@ Evaluación de eventos sísmicos usando modelo GPD
 Procesa archivos mseed preprocesados y evalúa detecciones contra picks manuales
 
 Uso: 
-python evaluate_gpd_events.py -V
-python evaluate_gpd_events.py --min-proba-p 0.65 --min-proba-s 0.85 -V
+python gpd_keras_inference_events.py -V
+python gpd_keras_inference_events.py --min-proba-p 0.55 --min-proba-s 0.85 -V
 """
 
 import numpy as np
@@ -15,13 +15,19 @@ import pandas as pd
 import argparse
 import os
 import gc
+import sys
 from collections import defaultdict
+from pathlib import Path
+
+# Add config module to path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'config'))
+import config
 
 # =================== CONFIGURACIÓN ===================
-# Rutas por defecto
-MSEED_DIR = "/home/rsa/projects/gpd/data/dataset/test_1000/"
-CSV_INPUT = "/home/rsa/projects/gpd/data/dataset/dataset_estratificado_1000_with_snr.csv" 
-CSV_OUTPUT = "/home/rsa/projects/gpd/data/out/resultados_evaluacion_1000_9595.csv"
+# Rutas por defecto usando configuración
+MSEED_DIR = str(config.get_data_dir('dataset/test_1000'))
+CSV_INPUT = str(config.get_data_dir('dataset/dataset_estratificado_1000_with_snr.csv'))
+CSV_OUTPUT = str(config.get_data_dir('results/resultados_evaluacion_1000_agente.csv'))
 
 # Estaciones por defecto
 DEFAULT_STATIONS = ['LABR', 'CHAI', 'CUSH', 'UVER', 'PORT']
@@ -182,14 +188,20 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Ejemplos de uso:
-  # Evaluación con umbrales por defecto
-  python evaluate_gpd_events.py -V
-  
+  # Evaluación con modelo y umbrales por defecto
+  python gpd_keras_inference_events.py -V
+
   # Umbrales personalizados
-  python evaluate_gpd_events.py --min-proba-p 0.55 --min-proba-s 0.90 -V
-  
+  python gpd_keras_inference_events.py --min-proba-p 0.55 --min-proba-s 0.90 -V
+
+  # Modelo específico (solo nombre)
+  python gpd_keras_inference_events.py --model-path gpd_v1.keras -V
+
+  # Modelo HDF5 legacy
+  python gpd_keras_inference_events.py --model-path model_pol_best.hdf5 -V
+
   # Solo estaciones específicas
-  python evaluate_gpd_events.py --stations CHAI LABR -V
+  python gpd_keras_inference_events.py --stations CHAI LABR -V
         """)
     
     parser.add_argument('--mseed-dir', type=str, default=MSEED_DIR,
@@ -204,13 +216,25 @@ Ejemplos de uso:
                        help=f'Umbral de probabilidad para fases P (default: {DEFAULT_MIN_PROBA_P})')
     parser.add_argument('--min-proba-s', type=float, default=DEFAULT_MIN_PROBA_S,
                        help=f'Umbral de probabilidad para fases S (default: {DEFAULT_MIN_PROBA_S})')
-    parser.add_argument('--model-path', type=str, default="./models/gpd_v2.keras",
-                       help='Ruta al modelo GPD (default: ./models/gpd_v2.keras)')
+    parser.add_argument('--model-path', type=str, default=None,
+                       help=f'Nombre del modelo GPD (default: {config.get_default_model_name()}). '
+                            f'Se busca en {config.get_models_dir()}. '
+                            f'Ejemplos: gpd_v2.keras, gpd_v1.keras, model_pol_best.hdf5')
     parser.add_argument('-V', '--verbose', action='store_true',
                        help='Mostrar información detallada')
     
     args = parser.parse_args()
-    
+
+    # Resolver la ruta del modelo
+    if args.model_path is None:
+        # Usar modelo por defecto
+        model_path = config.get_default_model_path()
+        model_name = config.get_default_model_name()
+    else:
+        # Usar modelo especificado (solo nombre, construir ruta completa)
+        model_name = args.model_path
+        model_path = config.get_models_dir() / model_name
+
     print("=== Evaluación de Eventos Sísmicos con GPD ===")
     print(f"Directorio MSEED: {args.mseed_dir}")
     print(f"CSV entrada: {args.csv_input}")
@@ -218,7 +242,8 @@ Ejemplos de uso:
     print(f"Estaciones: {args.stations}")
     print(f"Umbral P: {args.min_proba_p}")
     print(f"Umbral S: {args.min_proba_s}")
-    print(f"Modelo: {args.model_path}")
+    print(f"Modelo: {model_name}")
+    print(f"Ruta del modelo: {model_path}")
     
     # Verificar directorios y archivos
     if not os.path.isdir(args.mseed_dir):
@@ -229,14 +254,23 @@ Ejemplos de uso:
         print(f"ERROR: Archivo CSV no encontrado: {args.csv_input}")
         return
     
-    if not os.path.isfile(args.model_path):
-        print(f"ERROR: Modelo no encontrado: {args.model_path}")
+    if not os.path.isfile(model_path):
+        print(f"ERROR: Modelo no encontrado: {model_path}")
+        print(f"Modelos disponibles en {config.get_models_dir()}:")
+        try:
+            available_models = list(config.get_models_dir().glob('*.keras')) + \
+                             list(config.get_models_dir().glob('*.hdf5')) + \
+                             list(config.get_models_dir().glob('*.h5'))
+            for model_file in available_models:
+                print(f"  - {model_file.name}")
+        except:
+            print("  No se pudo listar los modelos disponibles")
         return
-    
+
     # Cargar modelo GPD
     print("Cargando modelo GPD...")
     try:
-        model = load_model(args.model_path, compile=False)
+        model = load_model(model_path, compile=False)
         print(f"OK: Modelo cargado - input_shape={model.input_shape}, output_shape={model.output_shape}")
     except Exception as e:
         print(f"ERROR cargando modelo: {e}")
