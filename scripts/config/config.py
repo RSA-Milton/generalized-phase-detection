@@ -26,20 +26,44 @@ def _load_env_file():
                         key, value = key.strip(), value.strip()
                         env_vars[key] = value
 
-            # Second pass: expand variables and set environment
-            for key, value in env_vars.items():
-                # Expand ${VAR} syntax
-                expanded_value = value
-                import re
-                for match in re.findall(r'\$\{([^}]+)\}', value):
-                    if match in env_vars:
-                        expanded_value = expanded_value.replace(f'${{{match}}}', env_vars[match])
-                    elif match in os.environ:
-                        expanded_value = expanded_value.replace(f'${{{match}}}', os.environ[match])
+            # Multiple passes to expand nested variables
+            import re
+            max_iterations = 10
+            for iteration in range(max_iterations):
+                changes_made = False
 
-                # Only set if not already in environment
+                for key, value in env_vars.items():
+                    # Skip if already fully expanded (no ${} patterns)
+                    if '${' not in value:
+                        continue
+
+                    # Expand ${VAR} syntax
+                    expanded_value = value
+                    for match in re.findall(r'\$\{([^}]+)\}', value):
+                        replacement = None
+
+                        # First try from env_vars (current file)
+                        if match in env_vars and '${' not in env_vars[match]:
+                            replacement = env_vars[match]
+                        # Then try from environment
+                        elif match in os.environ:
+                            replacement = os.environ[match]
+
+                        if replacement:
+                            expanded_value = expanded_value.replace(f'${{{match}}}', replacement)
+                            changes_made = True
+
+                    # Update the value
+                    env_vars[key] = expanded_value
+
+                # If no changes were made, we're done
+                if not changes_made:
+                    break
+
+            # Set all expanded variables in environment
+            for key, value in env_vars.items():
                 if key not in os.environ:
-                    os.environ[key] = expanded_value
+                    os.environ[key] = value
             break
         current_dir = current_dir.parent
         if current_dir == current_dir.parent:  # Reached root
@@ -90,6 +114,133 @@ def get_default_model_name() -> str:
     """Get the name of the default GPD model"""
     return os.getenv('GPD_DEFAULT_MODEL', 'gpd_v2.keras')
 
+# Nuevas funciones para estructura de datos mejorada
+def get_raw_data_dir(subdir: Optional[str] = None) -> Path:
+    """Get raw data directory"""
+    base_dir = Path(os.getenv('GPD_RAW_DIR', get_data_dir('raw')))
+    if subdir:
+        return base_dir / subdir
+    return base_dir
+
+def get_processed_data_dir(subdir: Optional[str] = None) -> Path:
+    """Get processed data directory"""
+    base_dir = Path(os.getenv('GPD_PROCESSED_DIR', get_data_dir('processed')))
+    if subdir:
+        return base_dir / subdir
+    return base_dir
+
+def get_results_data_dir(subdir: Optional[str] = None) -> Path:
+    """Get results data directory"""
+    base_dir = Path(os.getenv('GPD_RESULTS_DIR', get_data_dir('results')))
+    if subdir:
+        return base_dir / subdir
+    return base_dir
+
+def get_analysis_data_dir(subdir: Optional[str] = None) -> Path:
+    """Get analysis data directory"""
+    base_dir = Path(os.getenv('GPD_ANALYSIS_DIR', get_data_dir('analysis')))
+    if subdir:
+        return base_dir / subdir
+    return base_dir
+
+# Funciones específicas para subdirectorios detallados
+def get_raw_mseed_dir(subdir: Optional[str] = None) -> Path:
+    """Get raw MSEED directory"""
+    base_dir = Path(os.getenv('GPD_RAW_MSEED_DIR', get_raw_data_dir('mseed')))
+    if subdir:
+        return base_dir / subdir
+    return base_dir
+
+def get_raw_mseed_continuos_dir(year: Optional[str] = None) -> Path:
+    """Get raw MSEED continuous data directory"""
+    base_dir = Path(os.getenv('GPD_RAW_MSEED_CONTINUOS_DIR', get_raw_mseed_dir('continuos')))
+    if year:
+        return base_dir / year
+    return base_dir
+
+def get_raw_mseed_events_dir(year: Optional[str] = None) -> Path:
+    """Get raw MSEED events directory"""
+    base_dir = Path(os.getenv('GPD_RAW_MSEED_EVENTS_DIR', get_raw_mseed_dir('events')))
+    if year:
+        return base_dir / year
+    return base_dir
+
+def get_raw_mseed_waveforms_dir() -> Path:
+    """Get raw MSEED waveforms directory"""
+    return Path(os.getenv('GPD_RAW_MSEED_WAVEFORMS_DIR', get_raw_mseed_dir('waveforms')))
+
+def get_raw_mseed_legacy_dir() -> Path:
+    """Get raw MSEED legacy directory"""
+    return Path(os.getenv('GPD_RAW_MSEED_LEGACY_DIR', get_raw_mseed_dir('legacy')))
+
+def get_raw_datasets_dir() -> Path:
+    """Get raw datasets directory"""
+    return Path(os.getenv('GPD_RAW_DATASETS_DIR', get_raw_data_dir('datasets')))
+
+def get_processed_mseed_dir(subdir: Optional[str] = None) -> Path:
+    """Get processed MSEED directory"""
+    base_dir = Path(os.getenv('GPD_PROCESSED_MSEED_DIR', get_processed_data_dir('mseed')))
+    if subdir:
+        return base_dir / subdir
+    return base_dir
+
+def get_processed_mseed_continuos_dir(year: Optional[str] = None) -> Path:
+    """Get processed MSEED continuous data directory"""
+    base_dir = Path(os.getenv('GPD_PROCESSED_MSEED_CONTINUOS_DIR', get_processed_mseed_dir('continuos')))
+    if year:
+        return base_dir / year
+    return base_dir
+
+def get_processed_mseed_events_dir(dataset: Optional[str] = None) -> Path:
+    """Get processed MSEED events directory"""
+    base_dir = Path(os.getenv('GPD_PROCESSED_MSEED_EVENTS_DIR', get_processed_mseed_dir('events')))
+    if dataset:
+        return base_dir / dataset
+    return base_dir
+
+def get_processed_datasets_dir() -> Path:
+    """Get processed datasets directory"""
+    return Path(os.getenv('GPD_PROCESSED_DATASETS_DIR', get_processed_data_dir('datasets')))
+
+def get_results_gpd_dir(method: Optional[str] = None) -> Path:
+    """Get GPD results directory"""
+    base_dir = Path(os.getenv('GPD_RESULTS_GPD_DIR', get_results_data_dir('gpd')))
+    if method:
+        return base_dir / method
+    return base_dir
+
+def get_results_gpd_keras_dir() -> Path:
+    """Get GPD Keras results directory"""
+    return Path(os.getenv('GPD_RESULTS_GPD_KERAS_DIR', get_results_gpd_dir('keras')))
+
+def get_results_gpd_legacy_dir() -> Path:
+    """Get GPD legacy results directory"""
+    return Path(os.getenv('GPD_RESULTS_GPD_LEGACY_DIR', get_results_gpd_dir('legacy')))
+
+def get_results_gpd_tflite_dir() -> Path:
+    """Get GPD TFLite results directory"""
+    return Path(os.getenv('GPD_RESULTS_GPD_TFLITE_DIR', get_results_gpd_dir('tflite')))
+
+def get_results_stalta_dir() -> Path:
+    """Get STA/LTA results directory"""
+    return Path(os.getenv('GPD_RESULTS_STALTA_DIR', get_results_data_dir('stalta')))
+
+def get_results_comparisons_dir() -> Path:
+    """Get comparisons results directory"""
+    return Path(os.getenv('GPD_RESULTS_COMPARISONS_DIR', get_results_data_dir('comparisons')))
+
+def get_analysis_performance_dir() -> Path:
+    """Get performance analysis directory"""
+    return Path(os.getenv('GPD_ANALYSIS_PERFORMANCE_DIR', get_analysis_data_dir('performance')))
+
+def get_analysis_statistics_dir() -> Path:
+    """Get statistics analysis directory"""
+    return Path(os.getenv('GPD_ANALYSIS_STATISTICS_DIR', get_analysis_data_dir('statistics')))
+
+def get_analysis_plots_dir() -> Path:
+    """Get plots analysis directory"""
+    return Path(os.getenv('GPD_ANALYSIS_PLOTS_DIR', get_analysis_data_dir('plots')))
+
 def ensure_directories():
     """
     Create all configured directories if they don't exist.
@@ -100,7 +251,11 @@ def ensure_directories():
         get_local_root(),
         get_data_dir(),
         get_models_dir(),
-        get_temp_dir()
+        get_temp_dir(),
+        get_raw_data_dir(),
+        get_processed_data_dir(),
+        get_results_data_dir(),
+        get_analysis_data_dir()
     ]
 
     for directory in directories:
@@ -125,5 +280,9 @@ def print_config():
     print(f"  Main data dir:   {get_data_dir()}")
     print(f"  Models dir:      {get_models_dir()}")
     print(f"  Temp dir:        {get_temp_dir()}")
+    print(f"  Raw data:        {get_raw_data_dir()}")
+    print(f"  Processed data:  {get_processed_data_dir()}")
+    print(f"  Results data:    {get_results_data_dir()}")
+    print(f"  Analysis data:   {get_analysis_data_dir()}")
     print(f"  Default model:   {get_default_model_name()}")
     print(f"  Model path:      {get_default_model_path()}")

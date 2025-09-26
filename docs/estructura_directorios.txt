@@ -1,0 +1,52 @@
+Estructura Propuesta para /home/rsa/projects/gpd/data/
+
+  data/
+  ├── raw/                           # Datos sísmicos sin procesar
+  │   ├── mseed/                     # Archivos MSEED originales
+  │   │   ├── continuos/             # Archivos de registro continuo
+  │   │   │   ├── 2024/              # Organizados por año
+  │   │   │   └── 2025/
+  │   │   ├── events/                # Eventos extraidos
+  │   │   │   ├── 2024/              # Organizados por año
+  │   │   │   └── 2025/
+  │   │   ├── waveforms/             # Ventanas extraidas para reentrenamiento
+  │   │   └── legacy/                # Archivos para testear modelo legacy
+  │   └── datasets/                  # CSVs con información de eventos, archivos de registro continuo y ventanas de reentrenamiento
+  │       ├── analyst_picks.csv
+  │       ├── station_metadata.csv
+  │       └── waveforms.csv
+  │
+  ├── processed/                     # Datos procesados y listos para GPD
+  │   ├── mseed/                     # MSEED preprocesados (100Hz, filtrados)
+  │   │   ├── continuos/             # Archivos de registro continuo
+  │   │   │   ├── 2024/              # Organizados por año
+  │   │   │   └── 2025/
+  │   │   └── events/                # Eventos extraidos
+  │   │       ├── test_100/          # Datasets de prueba
+  │	  │       └── test_1000/
+  │   └── datasets/                  # CSVs con información de eventos
+  │       └── test/
+  │           ├── dataset_estratificado_100.csv
+  │           ├── dataset_estratificado_100_with_snr.csv
+  │           ├── dataset_estratificado_1000.csv
+  │           └── dataset_estratificado_1000_with_snr.csv     
+  │
+  ├── results/                       # Resultados de inferencia
+  │   ├── gpd/                       # Resultados de GPD
+  │   │   ├── keras/                 # Inferencia con Keras
+  │   │   ├── legacy/                # Inferencia legacy
+  │   │   └── tflite/                # Inferencia TFLite
+  │   ├── stalta/                    # Resultados STA/LTA
+  │   └── comparisons/               # Comparaciones entre métodos
+  │       ├── gpd_vs_analyst/
+  │       └── gpd_vs_stalta/
+  │
+  ├── analysis/                      # Análisis y reportes
+  │   ├── performance/               # Análisis de rendimiento
+  │   ├── statistics/                # Estadísticas de detección
+  │   └── plots/                     # Gráficas y visualizaciones
+  │
+  └── temp/                          # Archivos temporales
+      ├── preprocessing/             # Archivos temporales de preprocesamiento
+      ├── inference/                 # Archivos temporales de inferencia
+      └── debug/                     # Archivos de depuración

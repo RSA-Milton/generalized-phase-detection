@@ -33,6 +33,10 @@ def test_config_functions():
         ('get_temp_dir', config.get_temp_dir),
         ('get_default_model_name', config.get_default_model_name),
         ('get_default_model_path', config.get_default_model_path),
+        ('get_raw_mseed_events_dir', lambda: config.get_raw_mseed_events_dir('2024')),
+        ('get_processed_mseed_events_dir', lambda: config.get_processed_mseed_events_dir('test_1000')),
+        ('get_results_gpd_keras_dir', config.get_results_gpd_keras_dir),
+        ('get_analysis_plots_dir', config.get_analysis_plots_dir),
     ]
 
     for func_name, func in functions_to_test:

@@ -24,14 +24,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'config'))
 import config
 
 # =================== CONFIGURACIÓN ===================
-# Rutas por defecto usando configuración
-MSEED_DIR = str(config.get_data_dir('dataset/test_1000'))
-CSV_INPUT = str(config.get_data_dir('dataset/dataset_estratificado_1000_with_snr.csv'))
-CSV_OUTPUT = str(config.get_data_dir('results/resultados_evaluacion_1000_agente.csv'))
+# Rutas por defecto usando nueva estructura
+MSEED_DIR = str(config.get_processed_mseed_events_dir('test_1000'))
+CSV_INPUT = str(config.get_processed_datasets_dir() / 'test' / 'dataset_estratificado_1000_with_snr.csv')
+CSV_OUTPUT = str(config.get_results_gpd_keras_dir() / 'resultados_evaluacion_1000_agente_labr.csv')
 
 # Estaciones por defecto
-DEFAULT_STATIONS = ['LABR', 'CHAI', 'CUSH', 'UVER', 'PORT']
-#DEFAULT_STATIONS = ['LABR']
+#DEFAULT_STATIONS = ['LABR', 'CHAI', 'CUSH', 'UVER', 'PORT']
+DEFAULT_STATIONS = ['LABR']
 
 # Parámetros del modelo GPD
 DEFAULT_MIN_PROBA_P = 0.55
