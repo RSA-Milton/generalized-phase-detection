@@ -5,8 +5,8 @@ Procesa archivos mseed preprocesados y evalúa detecciones contra picks manuales
 Formato compatible con evaluate_gpd_events.py para comparación directa
 
 Uso: 
-python evaluate_stalta_events.py -V
-python evaluate_stalta_events.py --threshold-p-on 3.0 --threshold-s-on 2.5 -V
+python stalta_inference_events.py -V
+python stalta_inference_events.py --threshold-p-on 3.0 --threshold-s-on 2.5 -V
 """
 
 import numpy as np
@@ -16,13 +16,19 @@ import pandas as pd
 import argparse
 import os
 import gc
+import sys
 from collections import defaultdict
+from pathlib import Path
+
+# Add config module to path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'config'))
+import config
 
 # =================== CONFIGURACIÓN ===================
-# Rutas por defecto (mantener compatibilidad con GPD)
-MSEED_DIR = "/home/rsa/projects/gpd/data/dataset/test_1000/"
-CSV_INPUT = "/home/rsa/projects/gpd/data/dataset/dataset_estratificado_1000_with_snr.csv" 
-CSV_OUTPUT = "/home/rsa/projects/gpd/data/out/resultados_evaluacion_stalta_1000.csv"
+# Rutas por defecto usando nueva estructura
+MSEED_DIR = str(config.get_processed_mseed_events_dir('test_1000'))
+CSV_INPUT = str(config.get_processed_datasets_dir() / 'test' / 'dataset_estratificado_1000_with_snr.csv')
+CSV_OUTPUT = str(config.get_results_stalta_dir() / 'resultados_evaluacion_stalta_1000_agente_labr.csv')
 
 # Estaciones por defecto
 DEFAULT_STATIONS = ['LABR']
