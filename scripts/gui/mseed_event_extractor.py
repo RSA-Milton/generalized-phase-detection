@@ -252,10 +252,19 @@ class EventExtractorGUI:
     def _setup_environment(self):
         """Configura variables de entorno."""
         load_dotenv(find_dotenv())
-        self.project_root = os.getenv("PROJECT_LOCAL_ROOT")
+        self.project_root = os.getenv("GPD_LOCAL_ROOT")
         if not self.project_root:
-            print("ERROR: PROJECT_LOCAL_ROOT no definido en .env")
+            print("ERROR: GPD_LOCAL_ROOT no definido en .env")
             sys.exit(1)
+
+        # Directorio para abrir archivos (GPD_DATA_DIR por defecto)
+        self.data_dir = os.getenv("GPD_DATA_DIR")
+        if not self.data_dir:
+            print("AVISO: GPD_DATA_DIR no definido en .env")
+            self.data_dir = os.getcwd()
+
+        # Variable para recordar el último directorio usado
+        self.last_opened_dir = None
     
     def _init_components(self):
         """Inicializa los componentes principales."""
@@ -265,11 +274,12 @@ class EventExtractorGUI:
     def _create_gui(self):
         """Crea la interfaz gráfica."""
         self.window = tk.Tk()
-        self.window.title("Extracción de Eventos - GPD")
-        self.window.geometry("800x600")
+        self.window.title("Extractor de Eventos miniSEED - GPD")
+        self.window.geometry("1000x700")
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
-        
+
         self._create_file_frame()
+        self._create_info_frame()
         self._create_parameters_frame()
         self._create_actions_frame()
         self._create_plot_frame()
@@ -278,42 +288,70 @@ class EventExtractorGUI:
         """Crea el frame para selección de archivo."""
         frame = tk.Frame(self.window)
         frame.pack(fill='x', pady=5)
-        
-        tk.Label(frame, text="Archivo mseed:").pack(side='left', padx=5)
-        self.entry_archivo = tk.Entry(frame, width=50)
-        self.entry_archivo.pack(side='left', padx=5)
-        
-        tk.Button(frame, text="Abrir…", command=self._open_file).pack(side='left', padx=5)
-        
-        self.lbl_fecha = tk.Label(frame, text="Fecha: --   Inicio: --   Fin: --")
+
+        tk.Label(frame, text="Archivo mseed:", font=('Arial', 10, 'bold')).pack(side='left', padx=5)
+        self.entry_archivo = tk.Entry(frame, width=60, font=('Arial', 9))
+        self.entry_archivo.pack(side='left', padx=5, fill='x', expand=True)
+
+        tk.Button(frame, text="Abrir Archivo...", command=self._open_file,
+                 font=('Arial', 9), bg='lightblue').pack(side='right', padx=5)
+
+    def _create_info_frame(self):
+        """Crea el frame para información del archivo."""
+        frame = tk.Frame(self.window, relief='sunken', bd=1)
+        frame.pack(fill='x', pady=5, padx=5)
+
+        # Primera fila
+        info_frame1 = tk.Frame(frame)
+        info_frame1.pack(fill='x', pady=2)
+
+        self.lbl_fecha = tk.Label(info_frame1, text="Fecha: --",
+                                 font=('Arial', 10), fg='blue')
         self.lbl_fecha.pack(side='left', padx=10)
-    
+
+        # Segunda fila
+        info_frame2 = tk.Frame(frame)
+        info_frame2.pack(fill='x', pady=2)
+
+        self.lbl_inicio = tk.Label(info_frame2, text="Inicio: --",
+                                  font=('Arial', 10), fg='green')
+        self.lbl_inicio.pack(side='left', padx=10)
+
+        self.lbl_fin = tk.Label(info_frame2, text="Fin: --",
+                               font=('Arial', 10), fg='red')
+        self.lbl_fin.pack(side='left', padx=30)
+
+        self.lbl_duracion = tk.Label(info_frame2, text="Duración: --",
+                                    font=('Arial', 10), fg='purple')
+        self.lbl_duracion.pack(side='left', padx=30)
+
     def _create_parameters_frame(self):
         """Crea el frame para parámetros de extracción."""
-        frame = tk.Frame(self.window)
-        frame.pack(fill='x', pady=5)
-        
+        frame = tk.Frame(self.window, relief='raised', bd=1)
+        frame.pack(fill='x', pady=5, padx=5)
+
         # Primera fila
-        tk.Label(frame, text="Hora inicio (hh:mm:ss):").grid(row=0, column=0, padx=5, sticky='e')
-        self.entry_hora = tk.Entry(frame, width=14)
-        self.entry_hora.grid(row=0, column=1, padx=5)
-        
-        tk.Label(frame, text="Duración (s):").grid(row=0, column=2, padx=5, sticky='e')
-        self.spin_duracion = tk.Spinbox(frame, from_=0.1, to=600, increment=0.1, width=6)
-        self.spin_duracion.grid(row=0, column=3, padx=5)
-        
+        tk.Label(frame, text="Hora inicio (hh:mm:ss,ms):", font=('Arial', 9)).grid(row=0, column=0, padx=5, pady=5, sticky='e')
+        self.entry_hora = tk.Entry(frame, width=16, font=('Arial', 9))
+        self.entry_hora.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+
+        tk.Label(frame, text="Duración (s):", font=('Arial', 9)).grid(row=0, column=2, padx=5, pady=5, sticky='e')
+        self.spin_duracion = tk.Spinbox(frame, from_=0.1, to=600, increment=0.1, width=8, font=('Arial', 9))
+        self.spin_duracion.grid(row=0, column=3, padx=5, pady=5, sticky='w')
+
         # Segunda fila
-        tk.Label(frame, text="Desplazamiento (s):").grid(row=1, column=0, padx=5, sticky='e')
-        self.entry_shift = tk.Entry(frame, width=6)
+        tk.Label(frame, text="Desplazamiento (s):", font=('Arial', 9)).grid(row=1, column=0, padx=5, pady=5, sticky='e')
+        self.entry_shift = tk.Entry(frame, width=8, font=('Arial', 9))
         self.entry_shift.insert(0, "0")
-        self.entry_shift.grid(row=1, column=1, padx=5, sticky='w')
-        
-        tk.Label(frame, text="Canal:").grid(row=1, column=2, padx=5, sticky='e')
-        
+        self.entry_shift.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+
+        tk.Label(frame, text="Canal:", font=('Arial', 9)).grid(row=1, column=2, padx=5, pady=5, sticky='e')
+
         # Inicializar con valor por defecto hasta que se cargue un archivo
         self.channel_var = tk.StringVar(value="--")
         self.channel_menu = tk.OptionMenu(frame, self.channel_var, "--")
-        self.channel_menu.grid(row=1, column=3, padx=5, sticky='w')
+        self.channel_menu.config(font=('Arial', 9))
+        self.channel_menu.grid(row=1, column=3, padx=5, pady=5, sticky='w')
 
     def _update_channel_options(self):
         """Actualiza las opciones de canal basándose en el archivo cargado."""
@@ -342,31 +380,49 @@ class EventExtractorGUI:
     def _create_actions_frame(self):
         """Crea el frame para acciones y controles."""
         frame = tk.Frame(self.window)
-        frame.pack(pady=10)
-        
-        tk.Button(frame, text="Previsualizar", command=self._preview).pack(side='left', padx=10)
-        
-        tk.Button(frame, text="Guardar mseed", command=self._save_mseed).pack(side='left', padx=10)  # NUEVO
-        
-        self.btn_keep_center = tk.Button(frame, text="Mantener centro: OFF", command=self._toggle_keep_center)
+        frame.pack(pady=5)
+
+        # Primera fila de botones principales
+        tk.Button(frame, text="Previsualizar", command=self._preview,
+                 font=('Arial', 10, 'bold'), bg='lightgreen', padx=20).pack(side='left', padx=10)
+
+        tk.Button(frame, text="Guardar mseed", command=self._save_mseed,
+                 font=('Arial', 10), bg='lightcoral', padx=20).pack(side='left', padx=10)
+
+        tk.Button(frame, text="Limpiar", command=self._clear_plot,
+                 font=('Arial', 10), bg='lightyellow', padx=20).pack(side='left', padx=10)
+
+        # Botones de modo
+        self.btn_keep_center = tk.Button(frame, text="Mantener centro: OFF", command=self._toggle_keep_center,
+                                        font=('Arial', 9), relief=tk.RAISED)
         self.btn_keep_center.pack(side='left', padx=5)
-        
-        self.btn_centrar = tk.Button(frame, text="Centrar: OFF", command=self._toggle_centering)
-        self.btn_centrar.pack(side='left', padx=10)
-        
-        tk.Button(frame, text="Salir", command=self._on_close, fg='white', bg='red').pack(side='left', padx=10)
-        
-        self.lbl_centro = tk.Label(frame, text="Centro: --")
-        self.lbl_centro.pack(side='left', padx=10)
-        
-        self.lbl_pos = tk.Label(frame, text="Posición: --")
-        self.lbl_pos.pack(side='left', padx=10)
+
+        self.btn_centrar = tk.Button(frame, text="Centrar: OFF", command=self._toggle_centering,
+                                    font=('Arial', 9), relief=tk.RAISED)
+        self.btn_centrar.pack(side='left', padx=5)
+
+        # Botón salir
+        tk.Button(frame, text="Salir", command=self._on_close,
+                 font=('Arial', 10), fg='white', bg='red', padx=20).pack(side='right', padx=10)
+
+        # Labels de información
+        self.lbl_pos = tk.Label(frame, text="Posición: --",
+                               font=('Arial', 9), fg='gray')
+        self.lbl_pos.pack(side='right', padx=20)
+
+        self.lbl_centro = tk.Label(frame, text="Centro: --",
+                                  font=('Arial', 9), fg='darkblue')
+        self.lbl_centro.pack(side='right', padx=10)
     
     def _create_plot_frame(self):
         """Crea el frame para el gráfico."""
-        self.frame_plot = tk.Frame(self.window)
-        self.frame_plot.pack(fill='both', expand=True, pady=5)
-        
+        # Frame principal con borde
+        main_frame = tk.Frame(self.window, relief='sunken', bd=2)
+        main_frame.pack(fill='both', expand=True, pady=5, padx=5)
+
+        self.frame_plot = tk.Frame(main_frame)
+        self.frame_plot.pack(fill='both', expand=True, pady=2, padx=2)
+
         self.plot_manager = PlotManager(self.frame_plot)
     
     def _setup_callbacks(self):
@@ -384,34 +440,49 @@ class EventExtractorGUI:
     
     def _open_file(self):
         """Abre y procesa un archivo miniSEED."""
+        # Usar el último directorio abierto si existe, sino usar GPD_DATA_DIR
+        if self.last_opened_dir and os.path.isdir(self.last_opened_dir):
+            initial_dir = self.last_opened_dir
+        else:
+            initial_dir = self.data_dir
+
         filename = filedialog.askopenfilename(
-            title="Selecciona un mseed",
-            initialdir=os.path.join(self.project_root, "resultados", "mseed"),
-            filetypes=[("MiniSEED", "*.mseed"), ("Todos", "*.*")]
+            title="Selecciona un archivo miniSEED",
+            initialdir=initial_dir,
+            filetypes=[("MiniSEED", "*.mseed"), ("Todos los archivos", "*.*")]
         )
-        
+
         if not filename:
             return
-        
+
         try:
             self.data_processor.load_file(filename)
             self._update_file_info()
             self._reset_parameters()
             self._update_channel_options()
-            
+
             self.entry_archivo.delete(0, tk.END)
             self.entry_archivo.insert(0, filename)
-            
+
+            # Guardar el directorio del archivo abierto
+            self.last_opened_dir = os.path.dirname(filename)
+
+            print(f"\nArchivo cargado exitosamente: {os.path.basename(filename)}")
+
         except Exception as e:
             messagebox.showerror("Error", str(e))
+            print(f"Error al cargar archivo: {str(e)}")
     
     def _update_file_info(self):
         """Actualiza la información del archivo en la interfaz."""
         info = self.data_processor.get_file_info()
         if info:
-            self.lbl_fecha.config(
-                text=f"Fecha: {info['date']}   Inicio: {info['start_time']}   Fin: {info['end_time']}"
-            )
+            self.lbl_fecha.config(text=f"Fecha: {info['date']}")
+            self.lbl_inicio.config(text=f"Inicio: {info['start_time']}")
+            self.lbl_fin.config(text=f"Fin: {info['end_time']}")
+            # Calcular duración
+            duration = self.data_processor.file_endtime - self.data_processor.file_starttime
+            self.lbl_duracion.config(text=f"Duración: {duration:.3f} segundos")
     
     def _reset_parameters(self):
         """Resetea los parámetros a valores por defecto."""
@@ -585,6 +656,11 @@ class EventExtractorGUI:
         else:
             self.lbl_pos.config(text=f"Posición: {event.xdata:.2f} s")
     
+    def _clear_plot(self):
+        """Limpia el gráfico."""
+        self.plot_manager.clear_plot()
+        print("Gráfico limpiado.")
+
     def _save_mseed(self):
         """
         Guarda el evento en miniSEED incluyendo **todos los canales** presentes en la ventana
@@ -659,12 +735,17 @@ class EventExtractorGUI:
     
     def _on_close(self):
         """Maneja el cierre de la aplicación."""
+        print("Cerrando extractor de eventos miniSEED...")
         self.window.quit()
         self.window.destroy()
         sys.exit(0)
     
     def run(self):
         """Ejecuta la aplicación."""
+        print("="*60)
+        print("EXTRACTOR DE EVENTOS miniSEED - GPD")
+        print("="*60)
+        print("Iniciando aplicación...")
         self.window.mainloop()
 
 

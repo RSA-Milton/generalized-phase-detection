@@ -212,9 +212,9 @@ class SimpleViewerGUI:
     def _setup_environment(self):
         """Configura variables de entorno."""
         load_dotenv(find_dotenv())
-        self.project_root = os.getenv("PROJECT_LOCAL_ROOT")
+        self.project_root = os.getenv("GPD_LOCAL_ROOT")
         if not self.project_root:
-            print("AVISO: PROJECT_LOCAL_ROOT no definido en .env")
+            print("AVISO: GPD_LOCAL_ROOT no definido en .env")
             self.project_root = os.getcwd()  # Usar directorio actual como fallback
 
         # Directorio para abrir archivos (GPD_DATA_DIR por defecto)
