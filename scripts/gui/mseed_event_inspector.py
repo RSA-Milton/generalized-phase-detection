@@ -216,6 +216,15 @@ class SimpleViewerGUI:
         if not self.project_root:
             print("AVISO: PROJECT_LOCAL_ROOT no definido en .env")
             self.project_root = os.getcwd()  # Usar directorio actual como fallback
+
+        # Directorio para abrir archivos (GPD_DATA_DIR por defecto)
+        self.data_dir = os.getenv("GPD_DATA_DIR")
+        if not self.data_dir:
+            print("AVISO: GPD_DATA_DIR no definido en .env")
+            self.data_dir = os.getcwd()
+
+        # Variable para recordar el último directorio usado
+        self.last_opened_dir = None
     
     def _init_components(self):
         """Inicializa los componentes principales."""
@@ -310,26 +319,33 @@ class SimpleViewerGUI:
     
     def _open_file(self):
         """Abre y procesa un archivo miniSEED."""
-        initial_dir = os.path.join(self.project_root, "resultados", "mseed") if self.project_root else os.getcwd()
-        
+        # Usar el último directorio abierto si existe, sino usar GPD_DATA_DIR
+        if self.last_opened_dir and os.path.isdir(self.last_opened_dir):
+            initial_dir = self.last_opened_dir
+        else:
+            initial_dir = self.data_dir
+
         filename = filedialog.askopenfilename(
             title="Selecciona un archivo miniSEED",
             initialdir=initial_dir,
             filetypes=[("MiniSEED", "*.mseed"), ("Todos los archivos", "*.*")]
         )
-        
+
         if not filename:
             return
-        
+
         try:
             self.data_processor.load_file(filename)
             self._update_file_info()
-            
+
             self.entry_archivo.delete(0, tk.END)
             self.entry_archivo.insert(0, filename)
-            
+
+            # Guardar el directorio del archivo abierto
+            self.last_opened_dir = os.path.dirname(filename)
+
             print(f"\nArchivo cargado exitosamente: {os.path.basename(filename)}")
-            
+
         except Exception as e:
             messagebox.showerror("Error", str(e))
             print(f"Error al cargar archivo: {str(e)}")
