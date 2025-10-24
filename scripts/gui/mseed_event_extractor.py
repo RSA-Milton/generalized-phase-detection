@@ -157,22 +157,23 @@ class PlotManager:
 
 class CenteringMode:
     """Maneja el modo de centrado de eventos."""
-    
-    def __init__(self, button, position_label):
+
+    def __init__(self, button, position_label, time_label=None):
         self.is_active = False
         self.button = button
         self.position_label = position_label
-    
+        self.time_label = time_label
+
     def toggle(self):
         """Alterna el modo de centrado."""
         self.is_active = not self.is_active
         self._update_ui()
-    
+
     def deactivate(self):
         """Desactiva el modo de centrado."""
         self.is_active = False
         self._update_ui()
-    
+
     def _update_ui(self):
         """Actualiza la interfaz según el estado del modo."""
         if self.is_active:
@@ -181,6 +182,9 @@ class CenteringMode:
         else:
             self.button.config(relief=tk.RAISED, text='Centrar: OFF')
             self.position_label.config(text='Posición: --')
+
+        if self.time_label:
+            self.time_label.config(text='Tiempo: --')
 
 
 class KeepCenterMode:
@@ -248,6 +252,7 @@ class EventExtractorGUI:
         self._setup_callbacks()
         self.last_segment = None  # NUEVO: almacenará el último segmento previsualizado
         self._last_window = None  # (start_utc, duration)
+        self._current_start_time = None  # Guarda el tiempo de inicio del segmento actual para calcular tiempo absoluto
     
     def _setup_environment(self):
         """Configura variables de entorno."""
@@ -410,6 +415,10 @@ class EventExtractorGUI:
                                font=('Arial', 9), fg='gray')
         self.lbl_pos.pack(side='right', padx=20)
 
+        self.lbl_pos_time = tk.Label(frame, text="Tiempo: --",
+                                     font=('Arial', 9), fg='gray')
+        self.lbl_pos_time.pack(side='right', padx=5)
+
         self.lbl_centro = tk.Label(frame, text="Centro: --",
                                   font=('Arial', 9), fg='darkblue')
         self.lbl_centro.pack(side='right', padx=10)
@@ -427,14 +436,14 @@ class EventExtractorGUI:
     
     def _setup_callbacks(self):
         """Configura los callbacks y modos especiales."""
-        self.centering_mode = CenteringMode(self.btn_centrar, self.lbl_pos)
+        self.centering_mode = CenteringMode(self.btn_centrar, self.lbl_pos, self.lbl_pos_time)
         self.keep_center_mode = KeepCenterMode(self.btn_keep_center, self.time_handler)
-        
+
         self.plot_manager.set_callbacks(
             click_callback=self._on_plot_click,
             mouse_move_callback=self._on_mouse_move
         )
-        
+
         # Callback para cambios en duración
         self.spin_duracion.config(command=self._on_duration_change)
     
@@ -570,8 +579,9 @@ class EventExtractorGUI:
                 segment, params['duration'], self.entry_archivo.get()
             )
 
-            # Guardar la ultima ventana usada para previsualizacion
+            # Guardar la ultima ventana usada para previsualizacion y el tiempo de inicio
             self._last_window = (start_utc, params['duration'])
+            self._current_start_time = start_utc
             
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -646,8 +656,9 @@ class EventExtractorGUI:
                 self.lbl_pos.config(text="Δ: --")
             else:
                 self.lbl_pos.config(text="Posición: --")
+            self.lbl_pos_time.config(text="Tiempo: --")
             return
-        
+
         if self.centering_mode.is_active:
             duration = float(self.spin_duracion.get())
             center = duration / 2.0
@@ -655,6 +666,13 @@ class EventExtractorGUI:
             self.lbl_pos.config(text=f"Δ: {delta:+.2f} s")
         else:
             self.lbl_pos.config(text=f"Posición: {event.xdata:.2f} s")
+
+        # Calcular y mostrar el tiempo absoluto en formato hh:mm:ss,ms
+        if self._current_start_time is not None:
+            absolute_time = self._current_start_time + event.xdata
+            absolute_dt = absolute_time.datetime
+            time_str = f"{absolute_dt.strftime('%H:%M:%S')},{int(absolute_dt.microsecond/1000):03d}"
+            self.lbl_pos_time.config(text=f"Tiempo: {time_str}")
     
     def _clear_plot(self):
         """Limpia el gráfico."""
