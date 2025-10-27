@@ -195,3 +195,81 @@ python scripts/debug/compare_analyst-automated_events.py --analyst analyst_picks
 - **Environment configuration**: Scripts automatically load `.env` file for path configuration
 - **Model selection**: Use `--model-path` with just the model name (e.g., `gpd_v1.keras`), full path is resolved automatically
 - **Claude Code limitations**: Can only execute `scripts/utils/` scripts directly; other scripts require conda environments
+
+## Git Commit Format
+
+This project follows the Red Sísmica del Austro commit convention. All commits must include a prefix to indicate the type of change.
+
+### Commit Prefixes
+
+| Prefix | Purpose | Example |
+|--------|---------|---------|
+| **WIP:** | Work in Progress - incomplete work | `WIP: Implementación parcial de la autenticación` |
+| **FIX:** | Bug fixes | `FIX: Corregido error de validación de formulario en login` |
+| **FEAT:** | New features | `FEAT: Añadido soporte para autenticación con tokens JWT` |
+| **REFACTOR:** | Code refactoring (no functionality change) | `REFACTOR: Mejorada la legibilidad del módulo de autenticación` |
+| **DOCS:** | Documentation changes | `DOCS: Actualizado el README con instrucciones de autenticación` |
+| **STYLE:** | Code style/formatting (no logic change) | `STYLE: Formateado el código según el estándar PEP8` |
+| **CHORE:** | Maintenance tasks, dependency updates | `CHORE: Actualizadas las dependencias de npm` |
+| **TEST:** | Adding or modifying tests | `TEST: Añadidos tests unitarios para el módulo de autenticación` |
+| **PERF:** | Performance improvements | `PERF: Optimizado el procesamiento de datos en el servidor` |
+| **BUILD:** | Build system or external dependencies | `BUILD: Actualizado script de despliegue automático` |
+| **CI:** | CI/CD configuration changes | `CI: Configurado GitHub Actions para ejecutar pruebas automáticas` |
+| **SECURITY:** | Security patches or improvements | `SECURITY: Corregida vulnerabilidad de inyección de SQL` |
+| **HOTFIX:** | Critical production fixes | `HOTFIX: Corregido error de autenticación que rompía la sesión` |
+
+### Commit Message Structure
+
+```
+<PREFIX>: <Short description in Spanish>
+
+<Optional longer description explaining the changes>
+
+<Optional technical details, bullet points, etc.>
+
+🤖 Generated with Claude Code
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+### Examples
+
+```bash
+# Feature commit
+git commit -m "FEAT: Agregar scripts de preprocesamiento para GPD con 1 componente (Z)"
+
+# Bug fix
+git commit -m "FIX: Corregir error en normalización de amplitud en preprocess_dataset.py"
+
+# Documentation
+git commit -m "DOCS: Actualizar guía de instalación con nuevas dependencias"
+
+# Multiple changes
+git commit -m "REFACTOR: Simplificar pipeline de validación
+
+- Extraer funciones de plotting a módulo separado
+- Mejorar manejo de errores en carga de datos
+- Actualizar tests unitarios"
+```
+
+### Filtering Commits by Type
+
+To view commits of a specific type:
+
+```bash
+# View all feature commits
+git log --grep="FEAT"
+
+# View all bug fixes
+git log --grep="FIX"
+
+# View all documentation changes
+git log --grep="DOCS"
+```
+
+### Benefits
+
+1. **Clarity**: Quickly identify the purpose of each commit
+2. **Clean History**: Easy to review and filter commit history
+3. **Collaboration**: Team members understand changes without examining code
+4. **Automation**: Enables automatic changelog generation and release notes
