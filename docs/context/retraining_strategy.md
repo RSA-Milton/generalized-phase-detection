@@ -26,7 +26,7 @@
 
 ### 1.1 Forma y Tasa de Muestreo
 - **Input del modelo:** Ventanas de (400, 3)
-- **Si datos originales están a 250 Hz o 60 Hz:** Resamplear a 100 Hz
+- **Si datos originales están a 250 Hz o 64 Hz:** Resamplear a 100 Hz
 - **Razón:** Mantener compatibilidad sin modificar arquitectura ni pesos frontales
 
 ### 1.2 Estrategia de Ventaneo
