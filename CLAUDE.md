@@ -221,7 +221,7 @@ This project follows the Red Sísmica del Austro commit convention. All commits 
 ### Commit Message Structure
 
 ```
-<PREFIX>: <Short description in Spanish>
+<UPPERCASE PREFIX>: <Short description in Spanish>
 
 <Optional longer description explaining the changes>
 
