@@ -1,0 +1,93 @@
+# Directory Structure Configuration File
+# Lines starting with # are comments and will be ignored
+# Empty lines will be ignored
+# Each line represents a directory path relative to GPD_DATA_DIR
+#
+# Format: path/to/directory
+#
+# This file defines the complete directory structure for the GPD project.
+# It will be used by create_directory_structure.py to create all directories.
+
+# ============================================================
+# RAW DATA - Unprocessed seismic data
+# ============================================================
+
+# MSEED files - continuous recordings
+raw/mseed/continuos/2024
+raw/mseed/continuos/2025
+
+# MSEED files - seismic events
+raw/mseed/events/2024
+raw/mseed/events/2025
+
+# MSEED files - waveforms
+raw/mseed/waveforms
+
+# MSEED files - legacy data
+raw/mseed/legacy
+
+# Raw datasets (CSV metadata files)
+raw/datasets
+
+# ============================================================
+# PROCESSED DATA - Preprocessed seismic data ready for inference
+# ============================================================
+
+# Processed MSEED - continuous recordings
+processed/mseed/continuos/2024
+processed/mseed/continuos/2025
+
+# Processed MSEED - test events
+processed/mseed/events/test_100
+processed/mseed/events/test_1000
+
+# Processed datasets (CSV with preprocessed references)
+processed/datasets/test
+
+# ============================================================
+# RESULTS - Model inference outputs
+# ============================================================
+
+# GPD model results - Keras implementation
+results/gpd/keras
+
+# GPD model results - Legacy TensorFlow 1.x
+results/gpd/legacy
+
+# GPD model results - TensorFlow Lite
+results/gpd/tflite
+
+# STA/LTA detector results
+results/stalta
+
+# Comparison results - GPD vs analyst picks
+results/comparisons/gpd_vs_analyst
+
+# Comparison results - GPD vs STA/LTA
+results/comparisons/gpd_vs_stalta
+
+# ============================================================
+# ANALYSIS - Data analysis and statistics
+# ============================================================
+
+# Performance analysis results
+analysis/performance
+
+# Statistical analysis results
+analysis/statistics
+
+# Generated plots and visualizations
+analysis/plots
+
+# ============================================================
+# TEMPORARY FILES - Intermediate processing files
+# ============================================================
+
+# Temporary files from preprocessing
+temp/preprocessing
+
+# Temporary files from inference
+temp/inference
+
+# Temporary debugging files
+temp/debug
