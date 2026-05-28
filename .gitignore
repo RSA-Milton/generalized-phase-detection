@@ -30,8 +30,7 @@ MANIFEST
 .venv
 venv/
 ENV/
-!env/yml/
-!env/lock/
+!env/
 env.bak/
 venv.bak/
 

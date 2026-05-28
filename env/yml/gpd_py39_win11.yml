@@ -1,0 +1,11 @@
+name: gpd_py39_win11
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - tk
+  - obspy
+  - python-dotenv
+  - matplotlib
+  - numpy
+  - pip
